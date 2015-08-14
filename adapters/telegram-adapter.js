@@ -2,7 +2,7 @@
 var fs = require('fs');
 var TelegramBotApi = require('node-telegram-bot-api');
 
-var request = require('request');
+var request = require('request-promise');
 
 module.exports = class TelegramAdatper {
   constructor(tokenFile) {
@@ -29,11 +29,11 @@ module.exports = class TelegramAdatper {
   }
 
   start() {
-    this.adapter = new TelegramBotApi(this.token, {polling: true});
+    this.api = new TelegramBotApi(this.token, {polling: true});
     
     for (let e in this.callbacks) {
       for (let c of this.callbacks[e]) {
-        this.adapter.on(e, function(msg) {
+        this.api.on(e, function(msg) {
           //все адаптеры отдают нормализованный объект сообщения
           c({
             userId: 'telegram:' + msg.chat.id,
@@ -55,15 +55,15 @@ module.exports = class TelegramAdatper {
   }
 
   sendMessage(chatId, text) {
-    return this.adapter.sendMessage(chatId, text);
+    return this.api.sendMessage(chatId, text, { disable_web_page_preview: true });
   }
 
   sendLocation(chatId, location) {
-    return this.adapter.sendLocation(chatId, location.lat, location.lon);
+    return this.api.sendLocation(chatId, location.lat, location.lon);
   }
 
   // sendPhoto (chatId, photo) {
-  //   return this.adapter.sendMessage(chatId, photo);
+  //   return this.api.sendMessage(chatId, photo);
   // }
 
   sendPhoto(chatId, photo) {
