@@ -39,6 +39,7 @@ module.exports = class LocalWayApi {
           pageSize: options.count || 10,
         }
     }).then(function(response) {
+      // console.log(response)
       return JSON.parse(response).items;
     });
   }
@@ -54,7 +55,9 @@ module.exports = class LocalWayApi {
     // 
   }
 
-  image(id) {
-    return request(`https://img.localway.ru/fullsize/${ id }.jpg`);
+  image(poiId, imageId) {
+    // return request(`https://img.localway.ru/fullsize/${ id }.jpg`);
+    let size = '510x270';
+    return request(`http://img.localway.ru/scaled/poi/${poiId}/${imageId}/${size}.jpg`);
   }
 };

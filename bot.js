@@ -85,7 +85,7 @@ module.exports = class Bot {
     let result = this.processMessageText(msg.text, true);
     
     let searchOptions = { query: result.query };
-    if (_.include(result.modifiers, 'best')) {
+    if (_.include(result.modifiers, 'best') || _.include(result.modifiers, 'randomBest') ) {
       searchOptions.sortBy = 'rating';
     }
 
@@ -96,15 +96,18 @@ module.exports = class Bot {
           let p = places[0];
 
           if (_.include(result.modifiers, 'randomBest')) {
-            p = _(places).filter(function(p) { return p.rating > 4.6; }).sample();
+            // p = _(places).filter(function(p) { return p.rating > 4.6; }).sample();
+            p = _(places).slice(0,10).sample();
           }
 
 
           console.log('place:', p._id, p.name, p.address, p.lat, p.lon);
           // console.log(p);
 
+          let poiId = p._id.split('af')[0];
+
           let city = localWay.agglomerationReadableIdById(p.agglomeration);
-          p.link = `https://localway.ru/${ city }/poi/${ p.readableId }_${ p._id.split('af')[0] }`;
+          p.link = `https://localway.ru/${ city }/poi/${ p.readableId }_${ poiId }`;
 
           let resultText = Phrases.result(p);
           if (result.offtopic.length) {
@@ -113,10 +116,9 @@ module.exports = class Bot {
 
           msg.reply({ text: resultText.join('\n') })
             .then(function() {
-              return msg.reply({ image: localWay.image(p.cover) });
-            })
-            .then(function() {
-              return msg.reply({ location: { lat: p.lat, lon: p.lon }});
+              return msg.reply({ image: localWay.image(poiId, p.cover) }).then(function() {
+                return msg.reply({ location: { lat: p.lat, lon: p.lon }});
+              });
             });
         } else {
           msg.reply({ text: [].concat(Phrases.notFound, Phrases.help).join('\n') });
