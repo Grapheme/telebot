@@ -39,7 +39,8 @@ module.exports = class Bot {
     let greetingPattern = /(привет|добр[^ ]* [^ ]*|здорова|здрав[^ ]*|робот|эй)([\!\.\,\s]*)?/im; 
     let greeting = random ? _.sample(Phrases.greetings) : Phrases.greetings[0];
     text = text.replace(greetingPattern, function() {
-      result.offtopic.push(greeting);      
+      result.offtopic.push(greeting);
+      result.offtopic.push(Phrases.help);      
       return '';
     }).trim();
 
