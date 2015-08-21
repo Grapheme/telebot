@@ -1,7 +1,7 @@
 'use strict';
 var fs = require('fs');
 var TelegramBotApi = require('node-telegram-bot-api');
-
+var _ = require('lodash');
 var request = require('request-promise');
 
 module.exports = class TelegramAdatper {
@@ -16,7 +16,17 @@ module.exports = class TelegramAdatper {
     let id = this.userId.replace('telegram:','');
 
     if (data.text) {
-      return this.adapter.sendMessage(id, data.text);
+      var options = {};
+      if (data.keyboard) {
+        options.reply_markup = JSON.stringify({
+          one_time_keyboard: true,
+          keyboard: _.map(data.keyboard, function(i) {
+            return [i];
+          })
+        });
+      }
+      
+      return this.adapter.sendMessage(id, data.text, options);
     }
 
     if (data.location) {
@@ -54,8 +64,8 @@ module.exports = class TelegramAdatper {
     this.callbacks[messageType].push(callback);
   }
 
-  sendMessage(chatId, text) {
-    return this.api.sendMessage(chatId, text, { disable_web_page_preview: true });
+  sendMessage(chatId, text, options) {
+    return this.api.sendMessage(chatId, text,  _.extend({ disable_web_page_preview: true }, options || {}));
   }
 
   sendLocation(chatId, location) {

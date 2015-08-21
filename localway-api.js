@@ -8,7 +8,11 @@ var request = require('request');
 module.exports = class LocalWayApi {
   constructor() {
     this.r = rp.defaults({
-      baseUrl: 'http://localway.ru/portal-api'
+      baseUrl: 'http://dev.localway.ru/portal-api',
+      auth: {
+        user: 'devel',
+        pass: 'devel'
+      } 
     });
 
     this.defaultAgglomeration = '1af000000000000000000000'; // Москва
@@ -50,14 +54,24 @@ module.exports = class LocalWayApi {
       return best[Math.round(Math.random() * best.length)];
     });
   }
-
-  searchClosestBest(options) {
-    // 
-  }
+  
+  // searchClosestBest(options) {
+    
+  // }
 
   image(poiId, imageId) {
     // return request(`https://img.localway.ru/fullsize/${ id }.jpg`);
     let size = '510x270';
     return request(`http://img.localway.ru/scaled/poi/${poiId}/${imageId}/${size}.jpg`);
+  }
+
+  matchPlaces(places, query) {
+    function include(a,b) {
+      return a.toLowerCase().indexOf(b.toLowerCase()) > -1;
+    }
+    
+    return _.find(places, function(p) {
+      return _.find(p.aliases, function(a) { return include(a, query); }) || include(p.name, query);
+    });
   }
 };
