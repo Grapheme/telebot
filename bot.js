@@ -1,14 +1,15 @@
 'use strict';
 var _ = require('lodash');
-var fs = require('fs');
-var stream = require('stream');
+// var fs = require('fs');
+// var stream = require('stream');
 var LocalWayApi = require('./localway-api');
 var localWay = new LocalWayApi();
 
 var Phrases = require('./bot-phrases');
-// var Datastore = require('nedb');
-// var users = new Datastore();
-// var dialogs = new Datastore();
+
+var Datastore = require('nedb');
+var users = new Datastore();
+var dialogs = new Datastore();
 
 
 module.exports = class Bot {
@@ -31,43 +32,37 @@ module.exports = class Bot {
 
   processMessageText (text, random) {
     var result = {
-      offtopic: [],
+      text: [],
       query: '',
       modifiers: []
     }; 
 
-    let greetingPattern = /(привет|добр[^ ]* [^ ]*|здорова|здрав[^ ]*|робот|эй)([\!\.\,\s]*)?/im; 
-    let greeting = random ? _.sample(Phrases.greetings) : Phrases.greetings[0];
-    text = text.replace(greetingPattern, function() {
-      result.offtopic.push(greeting);
-      result.offtopic.push(Phrases.help);      
-      return '';
-    }).trim();
+    for (let r in Phrases.greetings) {
+      let responses = Phrases.greetings[r];
+      text = text.replace(new RegExp(r, 'im'), function() {
+        let response = random ? _.sample(responses) : responses[0];
+        result.text.push(response);
+        return '';
+      }).trim();
+    }
 
-    let offtopicPattern = /(как(.*)дел[^ ]*|как(.*)жизн[^ ]*|как пожива[^ ]*|что дела[^ ]*)/im;
-    let offtopic = random ? _.sample(Phrases.offtopic) : Phrases.offtopic[0];
-    text = text.replace(offtopicPattern, function() {
-      result.offtopic.push(offtopic);      
-      return '';
-    }).trim();
+    for (let r in Phrases.offtopic) {
+      let responses = Phrases.offtopic[r];
+      text = text.replace(new RegExp(r, 'im'), function() {
+        let response = random ? _.sample(responses) : responses[0];
+        result.text.push(response);
+        return '';
+      }).trim();
+    }
 
-    var queryPattern = /((найд[^ ]+|найти|искать|ищи|где|подскажи|покажи|как[^ ]+)\s+)(.*)/im;
-    text = text.replace(queryPattern, function(m, m1, m2, m3) {
+    // console.log('before query', text);
+    text = text.replace(new RegExp(Phrases.query, 'im'), function(m, m1, m2) {
       // console.log('queryPattern', arguments);
-      result.query = m3;      
-      return '';
-    }).trim();
-
-    var bestPattern = /лучш|хорош|неплох/im;
-    text = text.replace(bestPattern, function(m) {
-      result.modifiers.push('best');
+      result.query = m2;      
       return '';
     }).trim();
     
-    // недалеко ближайщий рядом вокруг - запрашивать местоположение, сортировать по расстоянию
-
-    // недорогой дешевый - сортировать по цене
-    
+      
     if (!result.modifiers.length) {
       // случайный из нескольких c высоким рейтингом
       result.modifiers.push('randomBest');
@@ -91,37 +86,34 @@ module.exports = class Bot {
 
     if (result.query) {
       localWay.search(searchOptions).then(function(places) {
-
         if (places.length) {
           let p = places[0];
+
+          // точное совпадение - 
+          // else
 
           if (_.include(result.modifiers, 'randomBest')) {
             // p = _(places).filter(function(p) { return p.rating > 4.6; }).sample();
             p = _(places).slice(0,10).sample();
           }
 
-
           console.log('place:', p._id, p.name, p.address, p.lat, p.lon);
-          // console.log(p);
+          console.log(p);
 
           let poiId = p._id.split('af')[0];
-
           let city = localWay.agglomerationReadableIdById(p.agglomeration);
           p.link = `https://localway.ru/${ city }/poi/${ p.readableId }_${ poiId }`;
 
-          let resultText = Phrases.result(p);
-          if (result.offtopic.length) {
-            resultText = [].concat(result.offtopic, '\n', resultText);            
-          }
-
-          msg.reply({ text: resultText.join('\n') })
-            .then(function() {
-              return msg.reply({ image: localWay.image(poiId, p.cover) }).then(function() {
-                return msg.reply({ location: { lat: p.lat, lon: p.lon }});
-              });
-            });
+          result.text = result.text.concat(Phrases.place(p));
+        
+          msg.reply({ text: result.text.join('\n') })
+            // .then(function() {
+              // return msg.reply({ image: localWay.image(poiId, p.cover) }).then(function() {
+                // return msg.reply({ location: { lat: p.lat, lon: p.lon }});
+              // });
+            // });
         } else {
-          msg.reply({ text: [].concat(Phrases.notFound, Phrases.help).join('\n') });
+          msg.reply({ text: [].concat(result.text, Phrases.notFound, Phrases.help).join('\n') });
         }
       });
     } else {

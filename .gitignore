@@ -1,4 +1,6 @@
 .dbingore
 node_modules
 
+*.log
+
 telegram.token
