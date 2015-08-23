@@ -143,8 +143,8 @@ module.exports = class Bot {
         }
       });
     } else {
-      result.offtopic.push(_.sample(Phrases.callsToAction));
-      msg.reply({ text: result.offtopic.join('\n') });
+      result.text.push(_.sample(Phrases.callsToAction));
+      msg.reply({ text: result.text.join('\n') });
     }
   }
 };
