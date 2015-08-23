@@ -6,7 +6,7 @@
   "scripts": {
     "test": "mocha",
     "start": "node app.js",
-    "start-service": "forever start -l forever.log -o out.log -e err.log app.js"
+    "start-service": "forever start -a -l forever.log -o out.log -e err.log app.js"
   },
   "author": "",
   "dependencies": {
