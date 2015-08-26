@@ -76,7 +76,7 @@ module.exports = class Bot {
     }
     
     if (!result.query) {
-      result.query = text;
+      result.query = text.replace(/[?!.]/m,' ').replace(/\\s+/m,' ').trim();
     }
 
 
