@@ -2,7 +2,8 @@
 var fs = require('fs');
 var TelegramBotApi = require('node-telegram-bot-api');
 var _ = require('lodash');
-var request = require('request-promise');
+var request = require('request');
+var Q = require('q');
 
 module.exports = class TelegramAdatper {
   constructor(tokenFile) {
@@ -16,7 +17,7 @@ module.exports = class TelegramAdatper {
     let id = this.userId.replace('telegram:','');
 
     if (data.text) {
-      var options = {};
+      let options = {};
       if (data.keyboard) {
         options.reply_markup = JSON.stringify({
           one_time_keyboard: true,
@@ -77,10 +78,16 @@ module.exports = class TelegramAdatper {
   // }
 
   sendPhoto(chatId, photo) {
-    return request.post({ url: `https://api.telegram.org/bot${ this.token }/${ 'sendPhoto' }`, formData: {
+    let deferred = Q.defer();
+    request.post({ url: `https://api.telegram.org/bot${ this.token }/${ 'sendPhoto' }`, formData: {
       chat_id: chatId,
       photo: photo
-    }});
+    }}, function(err, response, body) {
+      if (!err) {
+        deferred.resolve(body);
+      }
+    });
+    return deferred.promise;
   }
 };
 
