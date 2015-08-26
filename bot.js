@@ -77,9 +77,10 @@ module.exports = class Bot {
     }
     
     if (!result.query) {
-      result.query = text.replace(/[?!.]/m,' ').replace(/\\s+/m,' ').trim();
+      result.query = text;
     }
 
+    result.query = result.query.replace(/[?!.]/m,' ').replace(/\\s+/m,' ').trim().toLowerCase();
 
     for (let r in Phrases.dialogs) {
       if (result.query.match(new RegExp(r, 'im'))) {
@@ -87,7 +88,7 @@ module.exports = class Bot {
         result.text.push(_.isArray(response) ? _.sample(response) : response);
         result.choices = Phrases.dialogs[r].choices;
       }
-    }
+    } 
 
     for (let i = 0; i < result.text.length; i++) {
       result.text[i] = result.text[i].replace('QUERY', result.query);
