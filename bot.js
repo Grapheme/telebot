@@ -33,8 +33,9 @@ module.exports = class Bot {
     var result = {
       text: [],
       query: '',
-      modifiers: []
-    }; 
+      modifiers: [],
+      sorting: []
+    };
 
     for (let r in Phrases.greetings) {
       let responses = Phrases.greetings[r];
@@ -54,11 +55,31 @@ module.exports = class Bot {
       }).trim();
     }
 
-    for (let r in Phrases.queryModifier) {
-      let m = Phrases.queryModifier[r];
+    for (let r in Phrases.querySort) {
+      let m = Phrases.querySorting[r];
       text = text.replace(new RegExp(r, 'im'), function() {
-        result.modifiers.push(m.type);
+        result.sorting.push({ type: m.type });
         if (m.response) result.text.push(m.response);
+        return '';
+      }).trim();
+    }
+
+    if (!result.sorting.length) {
+      // случайный из нескольких c высоким рейтингом
+      result.sorting.push({ type: 'randomBest' });
+    }
+
+    // for (let s of localWay.sections) {
+    //   text = text.replace(new RegExp(s.name.replace('+', '\\+'), 'im'), function() {
+    //     result.modifiers.push({ section: s }); 
+    //     return '';
+    //   }).trim();
+    // }
+
+    for (let c of localWay.categories) {
+      text = text.replace(new RegExp(c.name.replace('+', '\\+'), 'im'), function(m) {
+        result.modifiers.push({ type: 'category', category: c }); 
+        // return m;
         return '';
       }).trim();
     }
@@ -71,14 +92,14 @@ module.exports = class Bot {
     }).trim();
     
 
-    if (!result.modifiers.length) {
-      // случайный из нескольких c высоким рейтингом
-      result.modifiers.push('randomBest');
-    }
     
     if (!result.query) {
       result.query = text;
     }
+
+    // TODO получить amenityName cuisineName 
+    result.query = result.query.replace(/кухн\\S*/m, '');
+
 
     result.query = result.query.replace(/[?!.]/m,' ').replace(/\\s+/m,' ').trim().toLowerCase();
 
@@ -104,42 +125,41 @@ module.exports = class Bot {
 
     if (result.choices) {
       msg.reply({ text: result.text.join('\n'), keyboard: result.choices });
-    } else if (result.query) {
+    } else if (result.query || _(result.modifiers).pluck('type').include('category')) {
 
-      let randomSearchOptions = { query: result.query };
-      if (_.include(result.modifiers, 'best') || _.include(result.modifiers, 'randomBest') ) {
-        randomSearchOptions.sortBy = 'rating';
+      let searchOptions = { query: result.query };
+      let c = _(result.modifiers).find({ type: 'category' });
+      if (c) searchOptions.categoryName = c.category.name;
+
+      let requests = [];
+      
+      if (_(result.sorting).pluck('type').intersection('best', 'randomBest').length) {
+        requests.push(localWay.searchRandomBest(searchOptions));
+      }
+      
+      if (_.compact(result.query.split(/\s+/)).length > 1) {
+        requests.push(localWay.search(searchOptions));
       }
 
-      // TODO фильтровать по категории
 
-      let exactSearchOptions = { query: result.query };
+      Q.all(requests).then(function(searchResults) {    
+        let normal = searchResults[0];
+        let exact = searchResults[1];
 
-
-      let requests = [localWay.search(randomSearchOptions)];
-      if (result.query.split(/\s+/).length > 1) {
-        requests.push(localWay.search(exactSearchOptions));
-      }
-
-      Q.all(requests).then(function(results) {    
-        let random = results[0];
-        let exact = results[1];
-
-        if (!random.length || exact && !exact.length) {
+        if (!normal.length && !exact.length) {
           msg.reply({ text: [].concat(result.text, Phrases.notFound, Phrases.help).join('\n') });
         } else {
-          let p = exact && exact[0] || random[0];
+          let p = normal[0];
 
           let match;
-          if (exact) {
+          if (exact && exact.length) {
+            // console.log('find exact');
             match = localWay.matchPlaces(exact, result.query);
-          } 
+          }
 
           if (match) { 
             p = match;
-          } else {
-            p = _(random).slice(0,10).sample();
-          }
+          } 
 
           console.log('place:', p._id, p.name, p.aliases, p.address, p.lat, p.lon);
           // console.log(p);

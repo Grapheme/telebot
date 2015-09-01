@@ -1,7 +1,7 @@
 'use strict';
 var _ = require('lodash');
 var request = require('request');
-var levenshtein = require('fast-levenshtein');
+// var levenshtein = require('fast-levenshtein');
 var Q = require('q');
 // request.debug = true;
 
@@ -18,50 +18,70 @@ module.exports = class LocalWayApi {
     this.defaultAgglomeration = '1af000000000000000000000'; // Москва
     this.defaultCategory = '170af0000000000000000000'; // Рестораны
 
-    this.agglomerations().then(function(data) {
-      this._agglomerations = data;
+    this.requestPromise('/agglomeration').then(function(data) {
+      this.agglomerations = data;
     }.bind(this));
 
-    this.r('/category', function(err, response, body) {
-      this.categories = JSON.parse(body);
+    this.requestPromise('/section').then(function(data) {
+      this.sections = data;
+    }.bind(this));
+
+    this.requestPromise('/category').then(function(data) {
+      this.categories = data;
     }.bind(this));
   }
 
-  agglomerations() {
+  requestPromise(options) {
     let deferred = Q.defer();
-    this.r('/agglomeration', function(err, response, body) {
-       deferred.resolve(JSON.parse(body));
+    this.r(options, function(err, response, body) {
+      if (!err) {
+        deferred.resolve(JSON.parse(body));
+      } else {
+        deferred.reject(err);
+      }
     });
     return deferred.promise;
   }
 
   agglomerationReadableIdById(id) {
-    return _.result(_.find(this._agglomerations, { _id: id }), 'readableId');
+    return _.result(_.find(this.agglomerations, { _id: id }), 'readableId');
   }
 
   search(options) {
-    let deferred = Q.defer();
-    this.r({ 
-        url: '/objects/search', 
-        qs: {
-          agglomeration: options.aid || this.defaultAgglomeration,
-          what: options.query,
-          sort: options.sortBy,
-          pageSize: options.count || 10,
-        }
-    }, function(err, response, body) {
-      if (!err) {
-        deferred.resolve(JSON.parse(body).items);
-      }
-    });
+    console.log('search', options);
 
-    return deferred.promise;
+    let query = {
+      agglomeration: options.aid || this.defaultAgglomeration,
+      pageSize: options.count || 50,
+    };
+
+    if (options.query) {
+      query.what = options.query;
+    }
+
+    if (options.sortBy) {
+      query.sort = options.sortBy;
+    }
+    
+    if (options.categoryName) {
+      query.categoryName = options.categoryName;
+    }
+
+    return this.requestPromise({ 
+      url: '/objects/search', 
+      qs: query
+    }).then(function(data) {
+      return data.items;
+    });
   }
 
   searchRandomBest(options) {
-    return this.search(_.extend(options, { sortBy: 'rating' })).then(function(p) {
-      let best = p.slice(0,10);
-      return best[Math.round(Math.random() * best.length)];
+    return this.search(_.extend(options, { sortBy: 'rating' })).then(function(places) {
+      let top =  _.chain(places).filter(function(p) { return p.rating > 4.7; }).value();
+      let top10 = _.chain(places).slice(0,10).value();
+      let best = _.max([top, top10], function(q) { return q.length; });
+      let p = _.sample(best);
+      return [p];
     });
   }
   
