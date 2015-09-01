@@ -98,10 +98,10 @@ module.exports = class Bot {
     }
 
     // TODO получить amenityName cuisineName 
-    result.query = result.query.replace(/кухн\\S*/m, '');
+    result.query = result.query.replace(/кухн\S*/im,'');
 
-
-    result.query = result.query.replace(/[?!.]/m,' ').replace(/\\s+/m,' ').trim().toLowerCase();
+    
+    result.query = result.query.replace(/[?!.]/m,' ').replace(/\s+/m,' ').trim().toLowerCase();
 
     for (let r in Phrases.dialogs) {
       if (result.query.match(new RegExp(r, 'im'))) {
@@ -132,8 +132,8 @@ module.exports = class Bot {
       if (c) searchOptions.categoryName = c.category.name;
 
       let requests = [];
-      
-      if (_(result.sorting).pluck('type').intersection('best', 'randomBest').length) {
+
+      if (_(result.sorting).pluck('type').intersection(['best', 'randomBest']).value().length) {
         requests.push(localWay.searchRandomBest(searchOptions));
       }
       
@@ -145,6 +145,7 @@ module.exports = class Bot {
       Q.all(requests).then(function(searchResults) {    
         let normal = searchResults[0];
         let exact = searchResults[1];
+        // console.log('searchResults', searchResults)
 
         if (!normal.length && !exact.length) {
           msg.reply({ text: [].concat(result.text, Phrases.notFound, Phrases.help).join('\n') });
