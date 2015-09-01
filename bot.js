@@ -92,13 +92,10 @@ module.exports = class Bot {
     }).trim();
     
 
-    
     if (!result.query) {
       result.query = text;
     }
 
-    // TODO получить amenityName cuisineName 
-    result.query = result.query.replace(/кухн\S*/im,'');
 
     
     result.query = result.query.replace(/[?!.]/m,' ').replace(/\s+/m,' ').trim().toLowerCase();
@@ -114,6 +111,13 @@ module.exports = class Bot {
     for (let i = 0; i < result.text.length; i++) {
       result.text[i] = result.text[i].replace('QUERY', result.query);
     }
+
+    // TODO получить amenityName cuisineName 
+    result.query = result.query.replace(/кухн\S*/im, function() {
+      result.modifiers.push({ type: 'category', category: { name: 'Ресторан' }});
+      return '';
+    });
+
     
     return result;
   }
