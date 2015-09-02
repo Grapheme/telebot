@@ -81,7 +81,7 @@ module.exports = class LocalWayApi {
       let top10 = _.chain(places).slice(0,10).value();
       let best = _.max([top, top10], function(q) { return q.length; });
       let p = _.sample(best);
-      return [p];
+      return p ? [p] : [];
     });
   }
   

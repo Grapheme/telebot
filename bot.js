@@ -125,7 +125,7 @@ module.exports = class Bot {
   onMessage (msg) {
     console.log('message:', msg.userId, msg.text);
     let result = this.processMessageText(msg.text, true);
-    console.log('processed message', result);
+    // console.log('processed message', result);
 
     if (result.choices) {
       msg.reply({ text: result.text.join('\n'), keyboard: result.choices });
@@ -148,8 +148,8 @@ module.exports = class Bot {
 
       Q.all(requests).then(function(searchResults) {    
         let normal = searchResults[0];
-        let exact = searchResults[1];
-        // console.log('searchResults', searchResults)
+        let exact = searchResults[1] || [];
+        
 
         if (!normal.length && !exact.length) {
           msg.reply({ text: [].concat(result.text, Phrases.notFound, Phrases.help).join('\n') });
@@ -157,7 +157,7 @@ module.exports = class Bot {
           let p = normal[0];
 
           let match;
-          if (exact && exact.length) {
+          if (exact.length) {
             // console.log('find exact');
             match = localWay.matchPlaces(exact, result.query);
           }
