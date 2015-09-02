@@ -1,13 +1,12 @@
 'use strict';
-var fs = require('fs');
 var TelegramBotApi = require('node-telegram-bot-api');
 var _ = require('lodash');
 var request = require('request');
 var Q = require('q');
 
 module.exports = class TelegramAdatper {
-  constructor(tokenFile) {
-    this.token = fs.readFileSync(tokenFile, 'utf8').trim();
+  constructor(token) {
+    this.token = token;
     this.callbacks = {};
   }
 
