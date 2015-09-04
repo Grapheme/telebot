@@ -20,19 +20,39 @@ var localWay = new LocalWayApi();
 // };
 
 
+   // message.query = message.query.replace(/[?!.]/m,' ').replace(/\s+/m,' ').trim().toLowerCase();
+
+
+    // // TODO получить amenityName cuisineName 
+    // message.query = message.query.replace(/кухн\S*/im, function() {
+    //   message.modifiers.push({ type: 'category', category: { name: 'Ресторан' }});
+    //   return '';
+    // });
+
+    // if (!message.sorting.length) {
+    //   // случайный из нескольких c высоким рейтингом
+    //   message.sorting.push({ type: 'randomBest' });
+    // }
+
 
 module.exports = {
   default: true,
   priority: 1,
-  match: '(найд|найти|искать|ищи|где|подскаж|покаж|как)\\S*\\s*',
+  match: [
+    '(найд|найти|искать|ищи|где|подскаж|покаж|как)\\S*\\s*'
+  ],
 
 
   response: function(message) {
+
+
 
     // return ['надо искать места', 'по очереди', 'prislilat', 'soobshenia'];
     console.log('sdsd', message);
     return 'надо искать ' + message.original;
   },
+
+  processMessage: function() {},
 
 
   searchForPlace(processedMessage) {

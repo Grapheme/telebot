@@ -36,12 +36,7 @@ module.exports = class Bot {
   }
 
   processMessageText (text) {
-
-    // команда
-    // запрос
-    // пиздеж
     /*
-    
     1
     привет -> func  текст меню
 
@@ -73,7 +68,7 @@ module.exports = class Bot {
     привет хуй - (меня)?\s+?(зовут)?([^\.\,]+)
 
     
-    9 ресторан парк покушать
+    9 ресторан парк покушать - обычный поиск
     
     */
 
@@ -86,13 +81,22 @@ module.exports = class Bot {
       sorting: []
     };
 
-    let d = _.find(Talk.dialogs, function(d) { 
-      return text.match(new RegExp(d.match, 'im'));
+    let matched;
+    let dialog = _.find(Talk.dialogs, function(dialog) { 
+      if (!_.isArray(dialog.match)) dialog.match = [dialog.match];
+      for (let r of dialog.match) {
+        let m = text.match(new RegExp(r, 'im'));
+        if (m) {
+          matched = r;
+          return true;
+        } 
+      }
+      return false;
     });
 
-    if (!d) d = Talk.defaultDialog;
+    if (!dialog) dialog = Talk.defaultDialog;
 
-    Q.when(d.response(message)).then(function(responses) {
+    Q.when(dialog.response(message, matched)).then(function(responses) {
       deferred.resolve(responses);
     });
     
@@ -143,32 +147,7 @@ module.exports = class Bot {
     //     result.choices = Talk.dialogs[r].choices;
     //   }
     // } 
-
-
-    // text = text.replace(new RegExp(Talk.query, 'im'), function(m, m1, m2) {
-    //   message.query = m2;      
-    //   return '';
-    // }).trim();
-    
-
-    // if (!message.query) {
-    //   message.query = text;
-    // }
-    
-    // message.query = message.query.replace(/[?!.]/m,' ').replace(/\s+/m,' ').trim().toLowerCase();
-
-
-    // // TODO получить amenityName cuisineName 
-    // message.query = message.query.replace(/кухн\S*/im, function() {
-    //   message.modifiers.push({ type: 'category', category: { name: 'Ресторан' }});
-    //   return '';
-    // });
-
-    // if (!message.sorting.length) {
-    //   // случайный из нескольких c высоким рейтингом
-    //   message.sorting.push({ type: 'randomBest' });
-    // }
-
+  
     // for (let i = 0; i < response.length; i++) {
     //   response[i] = response[i].replace('QUERY', message.query);
     // }
@@ -198,9 +177,6 @@ module.exports = class Bot {
           return msg.reply({ text: r.text.join('\n'), keyboard: r.choices  });  
         };
       }).reduce(Q.when, Q());
-
-
-
     });
 
 
@@ -228,8 +204,6 @@ module.exports = class Bot {
     //     msg.reply({ text: response.text.join('\n') });
     //   }
 
-    // });
-    
-     
+    // }); 
   }
 };
