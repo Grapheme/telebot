@@ -18,6 +18,10 @@ module.exports = class Bot {
     this.adapters.push(a);
   }
 
+  adapterByUserId(userId) {
+    return _.find(this.adapters, { type: userId.split(':')[0] });
+  }
+
   start() {
     for (let a of this.adapters) {
       a.on('text', function() {
@@ -29,13 +33,18 @@ module.exports = class Bot {
 
       }.bind(this));
       
-      // a.on('location', this.onLocation.bind(this));
+      a.on('location', this.onLocation.bind(this));
+
       a.start();
       console.log('Bot started...');
     }
   }
 
-  processMessageText (text) {
+  processMessageText (msg) {
+    let text = msg.text;
+    let reply = msg.reply;
+
+
     /*
     1
     привет -> func  текст меню
@@ -65,7 +74,7 @@ module.exports = class Bot {
     скажи как тебя зовут
     если следующее сообщение того
     если нет - пиздюк
-    привет хуй - (меня)?\s+?(зовут)?([^\.\,]+)
+    привет kk - (меня)?\s+?(зовут)?([^\.\,]+)
 
     
     9 ресторан парк покушать - обычный поиск
@@ -96,114 +105,95 @@ module.exports = class Bot {
 
     if (!dialog) dialog = Talk.defaultDialog;
 
-    Q.when(dialog.response(message, matched)).then(function(responses) {
+    let history = dialogs.find({ userId: msg.userId, time: { $gt: Date.now() - 30 * 60 * 1000 } });
+
+    Q.when(dialog.response(message, matched, reply, history)).then(function(responses) {
       deferred.resolve(responses);
     });
     
     return deferred.promise;
 
-
-
-    // for (let r in Talk.greetings) {
-    //   let responses = Talk.greetings[r];
-    //   text = text.replace(new RegExp(r, 'im'), function() {
-    //     let response = random ? _.sample(responses) : responses[0];
-    //     result.responseText.push(response);
-    //     return '';
-    //   }).trim();
-    // }
-
-    // for (let r in Talk.offtopic) {
-    //   let responses = Talk.offtopic[r];
-    //   text = text.replace(new RegExp(r, 'im'), function() {
-    //     let response = random ? _.sample(responses) : responses[0];
-    //     result.responseText.push(response);
-    //     return '';
-    //   }).trim();
-    // }
-
-    // for (let r in Talk.querySort) {
-    //   let m = Talk.querySorting[r];
-    //   text = text.replace(new RegExp(r, 'im'), function() {
-    //     result.sorting.push({ type: m.type });
-    //     if (m.response) result.responseText.push(m.response);
-    //     return '';
-    //   }).trim();
-    // }
-
-    
-    // for (let c of localWay.categories) {
-    //   text = text.replace(new RegExp(c.name.replace('+', '\\+'), 'im'), function(m) {
-    //     result.modifiers.push({ type: 'category', category: c }); 
-    //     // return m;
-    //     return '';
-    //   }).trim();
-    // }
-
-    // for (let r in Talk.dialogs) {
-    //   if (result.query.match(new RegExp(r, 'im'))) {
-    //     let response = Talk.dialogs[r].response;
-    //     result.responseText.push(_.isArray(response) ? _.sample(response) : response);
-    //     result.choices = Talk.dialogs[r].choices;
-    //   }
-    // } 
-  
     // for (let i = 0; i < response.length; i++) {
     //   response[i] = response[i].replace('QUERY', message.query);
-    // }
-  
+    // }  
   }
 
-
-
   onMessage (msg) {
+    console.log('on message', msg);
 
-    this.processMessageText(msg.text).then(function(responses) {
+    this.processMessageText(msg).then(function(responses) {
       dialogs.insert({ 
-        userId: msg.userId, 
+        userId: msg.userId,
+        time: Date.now(), 
+        type: 'incoming',
         message: msg.text, 
-        responses: responses
-      }, function (err, newDoc) {
-
+        responses: responses,
+        need: _.find(responses, { needLocation: true }) ? 'location' : ''
       });
+      
+      function normalizeResponse(r) {
+        r.userId = msg.userId;
 
-      // console.log(msg.text, responses);
+
+
+        if (_.isString(r)) r = { text: r };
+        if (r.text && _.isArray(r.text)) {
+          r.text = r.text.join('\n');
+        }
+        if (r.choices) {
+          r.keyboard = r.choices;
+          delete r.choices;
+        }
+
+        // console.log('r', r);
+
+        return r;
+      }
 
       if (!_.isArray(responses)) responses = [responses];
-      _(responses).map(function(r) {
-        return function() { 
-          if (_.isString(r)) r = { text: r };
-          if (!_.isArray(r.text)) r.text = [r.text];
-          return msg.reply({ text: r.text.join('\n'), keyboard: r.choices  });  
-        };
-      }).reduce(Q.when, Q());
+
+      let adapter = this.adapterByUserId(msg.userId);
+
+      // console.log('sdsd', msg.text, responses);
+
+      responses
+        .map(normalizeResponse)
+        .map(function(r) {
+          return function() {           
+            console.log('sent', _.keys(r));
+            return adapter.reply(r);
+          };
+        })
+        .reduce(Q.when, Q());
+
+
+    }.bind(this));
+  }
+
+  onLocation (msg) {
+    console.log('onLocation', msg);
+
+    dialogs.insert({ 
+      userId: msg.userId, 
+      time: Date.now(),
+      location: msg.location
     });
 
+    
 
-    //   if (processedMessage.query || _(processedMessage.modifiers).pluck('type').include('category')) {
+    dialogs.find({ userId: msg.userId, type: 'incoming' }).sort({ time: -1 }).limit(1).exec(function (err, docs) {
+      // docs contains Earth
+      // console.log('find last message', err, docs);
+      if (err || !docs.length ) return;
 
-    //     this.searchForPlace(processedMessage).then(function(place) {
-    //       if (place) {
-    //         response.text = response.text.concat(Talk.place(place));
-    //       } else {
-    //         response.text = response.text.concat(Talk.notFound, Talk.help); 
-    //       }
+      this.onMessage({
+        userId: docs[0].userId,
+        text: docs[0].message,
+        reply: {
+          location: msg.location
+        }
+      });
 
-    //       msg.reply({ text: response.text.join('\n') })
-    //         .then(function() {
-    //           if (!place) {
-    //             return;
-    //           }
-    //           return msg.reply({ image: place.coverImage() }).then(function() {
-    //             // return msg.reply({ location: { lat: place.lat, lon: place.lon }});
-    //           });
-    //         });
-    //     });
-
-    //   } else if (response.text.length) {
-    //     msg.reply({ text: response.text.join('\n') });
-    //   }
-
-    // }); 
+    }.bind(this));
   }
 };

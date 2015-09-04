@@ -5,6 +5,7 @@ var _ = require('lodash');
 module.exports = {
   priority: 1,
   match: [
+    'test',
     '(привет|здоров\\S*|здаров\\S*)',
     'здрав\\S*',
     'добр\\S*\\s*((ден|дн|ноч)\\S*)?',
@@ -52,6 +53,14 @@ module.exports = {
       ]
     }
   },
+
+  // callsToAction: [
+  //   'Чего желаете?',
+  //   'Что для тебя найти?',
+  //   'Что я могу для тебя найти?',
+  //   'Чем я могу тебе помочь?',
+  //   'Что будем искать?'
+  // ],
 
   response: function(message) {
     let day = (new Date()).getDay();

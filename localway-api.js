@@ -5,6 +5,10 @@ var request = require('request');
 var Q = require('q');
 // request.debug = true;
 
+let geolib = require('geolib');
+
+
+
 module.exports = class LocalWayApi {
   constructor() {
     this.r = request.defaults({
@@ -51,9 +55,30 @@ module.exports = class LocalWayApi {
     console.log('search', options);
 
     let query = {
-      agglomeration: options.aid || this.defaultAgglomeration,
       pageSize: options.count || 50,
     };
+
+
+
+    if (options.aid) {
+      query.agglomeration = options.aid;
+    } else if (options.latitude && !options.aid) {
+      console.log('find agglomeration');
+      let closest = _.sortBy(this.agglomerations, function(a) {
+        return geolib.getDistance({ 
+          latitude: a.centroid.lat, 
+          longitude: a.centroid.lon 
+        }, { 
+          latitude: options.latitude, 
+          longitude: options.longitude 
+        });
+      })[0];
+
+      console.log('agglomeration', closest.name);
+      query.agglomeration = closest._id;
+    } else {
+      query.agglomeration = this.defaultAgglomeration;
+    }
 
     if (options.query) {
       query.what = options.query;
@@ -112,6 +137,8 @@ module.exports = class LocalWayApi {
     let poiId = p._id.split('af')[0];
     let city = this.agglomerationReadableIdById(p.agglomeration);
     p.link = `https://localway.ru/${ city }/poi/${ p.readableId }_${ poiId }`;
+    // p.image = `http://img.localway.ru/scaled/poi/${poiId}/${ p.cover }/510x270.jpg`;
+
     p.coverImage = function() {
       return this.image(poiId, p.cover);
     }.bind(this);

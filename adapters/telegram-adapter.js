@@ -6,35 +6,36 @@ var Q = require('q');
 
 module.exports = class TelegramAdatper {
   constructor(token) {
+    this.type = 'telegram';
+
     this.token = token;
     this.callbacks = {};
   }
 
-  // будет выполняться в контексте сообщения 
-  // TODO: добавить в _reply поддержку очереди -- сообщения должны отправляться в порядке вызова
-  _reply(data) {
-    let id = this.userId.replace('telegram:','');
+  
+  reply(msg) {
+    let id = msg.userId.replace('telegram:','');
 
-    if (data.text) {
+    if (msg.text) {
       let options = {};
-      if (data.keyboard) {
+      if (msg.keyboard) {
         options.reply_markup = JSON.stringify({
           one_time_keyboard: true,
-          keyboard: _.map(data.keyboard, function(i) {
+          keyboard: _.map(msg.keyboard, function(i) {
             return [i];
           })
         });
       }
       
-      return this.adapter.sendMessage(id, data.text, options);
+      return this.sendMessage(id, msg.text, options);
     }
 
-    if (data.location) {
-      return this.adapter.sendLocation(id, data.location);
+    if (msg.location) {
+      return this.sendLocation(id, msg.location);
     }
 
-    if (data.image) {
-      return this.adapter.sendPhoto(id, data.image);
+    if (msg.image) {
+      return this.sendPhoto(id, msg.image);
     }
   }
 
@@ -48,8 +49,9 @@ module.exports = class TelegramAdatper {
         c({
           userId: 'telegram:' + msg.chat.id,
           text: msg.text,
-          adapter: this,
-          reply: this._reply
+          location: msg.location
+          // adapter: this,
+          // reply: this._reply
         });
         }.bind(this));
       }
@@ -65,7 +67,28 @@ module.exports = class TelegramAdatper {
   }
 
   sendMessage(chatId, text, options) {
-    return this.api.sendMessage(chatId, text,  _.extend({ disable_web_page_preview: true }, options || {}));
+    options = _.extend({ disable_web_page_preview: true }, options || {});
+
+    console.log('sendMessage', chatId, text, options);
+
+    // return Q.Promise(function(resolve) {
+    //   this.api.sendMessage(chatId, text, options)
+    //     .then(function() {
+    //       setTimeout(function() {
+    //         resolve()
+    //       }, 10)
+    //       console.log('succes');
+    //     }, function() {
+    //       console.log('error!!!!', arguments);
+    //     });
+    // })
+
+    return  this.api.sendMessage(chatId, text, options)
+      .then(function() {
+        console.log('sending succes');
+      }, function() {
+        console.log('sending error!!!!', arguments);
+      });
   }
 
   sendLocation(chatId, location) {
@@ -77,11 +100,15 @@ module.exports = class TelegramAdatper {
   // }
 
   sendPhoto(chatId, photo) {
+    // console.log('sendPhoto', chatId, photo);
+
     let deferred = Q.defer();
     request.post({ url: `https://api.telegram.org/bot${ this.token }/${ 'sendPhoto' }`, formData: {
       chat_id: chatId,
       photo: photo
     }}, function(err, response, body) {
+      console.log('senfing Photo', err);
+
       if (!err) {
         deferred.resolve(body);
       }
