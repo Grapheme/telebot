@@ -45,12 +45,12 @@ module.exports = class TelegramAdatper {
       for (let c of this.callbacks[e]) {
         this.api.on(e, function(msg) {
           //все адаптеры отдают нормализованный объект сообщения
-          c({
-            userId: 'telegram:' + msg.chat.id,
-            text: msg.text,
-            adapter: this,
-            reply: this._reply
-          });
+        c({
+          userId: 'telegram:' + msg.chat.id,
+          text: msg.text,
+          adapter: this,
+          reply: this._reply
+        });
         }.bind(this));
       }
     }

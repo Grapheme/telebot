@@ -89,9 +89,11 @@ module.exports = class LocalWayApi {
     
   // }
 
-  image(poiId, imageId) {
+  image(poiId, imageId, size) {
     // return request(`https://img.localway.ru/fullsize/${ id }.jpg`);
-    let size = '510x270';
+    if (!size) {
+      size = '510x270';
+    }
     return request(`http://img.localway.ru/scaled/poi/${poiId}/${imageId}/${size}.jpg`);
   }
 
@@ -104,5 +106,16 @@ module.exports = class LocalWayApi {
       // return _.find(p.aliases, function(a) { return levenshtein.get(a, query) < 4; }) || include(p.name, query);
       return _.include(p.aliases, query) || includeString(p.name, query);
     });
+  }
+
+  preparePlace(p) {    
+    let poiId = p._id.split('af')[0];
+    let city = this.agglomerationReadableIdById(p.agglomeration);
+    p.link = `https://localway.ru/${ city }/poi/${ p.readableId }_${ poiId }`;
+    p.coverImage = function() {
+      return this.image(poiId, p.cover);
+    }.bind(this);
+
+    return p;
   }
 };

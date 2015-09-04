@@ -1,14 +1,12 @@
 'use strict';
 var _ = require('lodash');
-// var fs = require('fs');
-// var stream = require('stream');
-var LocalWayApi = require('./localway-api');
-var localWay = new LocalWayApi();
+var async = require('async');
 
-var Phrases = require('./bot-phrases');
-// var Datastore = require('nedb');
-// var users = new Datastore();
-// var dialogs = new Datastore();
+
+var Talk = require('./bot-talk');
+var Datastore = require('nedb');
+var dialogs = new Datastore(); //{ filename: 'path/to/datafile', autoload: true }
+
 var Q = require('q');
 
 module.exports = class Bot {
@@ -22,174 +20,216 @@ module.exports = class Bot {
 
   start() {
     for (let a of this.adapters) {
-      a.on('text', this.onMessage.bind(this));
+      a.on('text', function() {
+        try {
+          this.onMessage.apply(this, arguments);
+        } catch(e) {
+          console.log('Error onMessage', e.stack);
+        }
+
+      }.bind(this));
+      
       // a.on('location', this.onLocation.bind(this));
       a.start();
       console.log('Bot started...');
     }
   }
 
-  processMessageText (text, random) {
-    var result = {
-      text: [],
+  processMessageText (text) {
+
+    // команда
+    // запрос
+    // пиздеж
+    /*
+    
+    1
+    привет -> func  текст меню
+
+    2
+    пицца рядом, обед поблизости -> запрос пицца, ждать геолокации, 'пришли место'
+    если сообщение геолокация - то искать 
+    если сообщение не геолокация - искать
+    отправил место - клавиатура - жду ответа отлично отлично нет неи
+
+    3
+    ДА, ОТЛИЧНО - понравилось
+
+    4
+    ДРУГОЕ МЕСТО, нет, все плохо  - не понравивлось
+
+    5
+    НА КАРТЕ - последнке место и показывает на карте
+
+    6
+    ЕЩЕ ФОТО - последнее место и показывает его фотки
+
+    7
+    ЗАБРОНИРОВАТЬ СТОЛИК -- ищу последнее место даю ссылку на бронирование
+     
+    8 
+    скажи как тебя зовут
+    если следующее сообщение того
+    если нет - пиздюк
+    привет хуй - (меня)?\s+?(зовут)?([^\.\,]+)
+
+    
+    9 ресторан парк покушать
+    
+    */
+
+    var deferred = Q.defer();
+
+    let message = {
+      original: text,
       query: '',
       modifiers: [],
       sorting: []
     };
 
-    for (let r in Phrases.greetings) {
-      let responses = Phrases.greetings[r];
-      text = text.replace(new RegExp(r, 'im'), function() {
-        let response = random ? _.sample(responses) : responses[0];
-        result.text.push(response);
-        return '';
-      }).trim();
-    }
+    let d = _.find(Talk.dialogs, function(d) { 
+      return text.match(new RegExp(d.match, 'im'));
+    });
 
-    for (let r in Phrases.offtopic) {
-      let responses = Phrases.offtopic[r];
-      text = text.replace(new RegExp(r, 'im'), function() {
-        let response = random ? _.sample(responses) : responses[0];
-        result.text.push(response);
-        return '';
-      }).trim();
-    }
+    if (!d) d = Talk.defaultDialog;
 
-    for (let r in Phrases.querySort) {
-      let m = Phrases.querySorting[r];
-      text = text.replace(new RegExp(r, 'im'), function() {
-        result.sorting.push({ type: m.type });
-        if (m.response) result.text.push(m.response);
-        return '';
-      }).trim();
-    }
+    Q.when(d.response(message)).then(function(responses) {
+      deferred.resolve(responses);
+    });
+    
+    return deferred.promise;
 
-    if (!result.sorting.length) {
-      // случайный из нескольких c высоким рейтингом
-      result.sorting.push({ type: 'randomBest' });
-    }
 
-    // for (let s of localWay.sections) {
-    //   text = text.replace(new RegExp(s.name.replace('+', '\\+'), 'im'), function() {
-    //     result.modifiers.push({ section: s }); 
+
+    // for (let r in Talk.greetings) {
+    //   let responses = Talk.greetings[r];
+    //   text = text.replace(new RegExp(r, 'im'), function() {
+    //     let response = random ? _.sample(responses) : responses[0];
+    //     result.responseText.push(response);
     //     return '';
     //   }).trim();
     // }
 
-    for (let c of localWay.categories) {
-      text = text.replace(new RegExp(c.name.replace('+', '\\+'), 'im'), function(m) {
-        result.modifiers.push({ type: 'category', category: c }); 
-        // return m;
-        return '';
-      }).trim();
-    }
+    // for (let r in Talk.offtopic) {
+    //   let responses = Talk.offtopic[r];
+    //   text = text.replace(new RegExp(r, 'im'), function() {
+    //     let response = random ? _.sample(responses) : responses[0];
+    //     result.responseText.push(response);
+    //     return '';
+    //   }).trim();
+    // }
 
-    // console.log('before query', text);
-    text = text.replace(new RegExp(Phrases.query, 'im'), function(m, m1, m2) {
-      // console.log('queryPattern', arguments);
-      result.query = m2;      
-      return '';
-    }).trim();
-    
-
-    if (!result.query) {
-      result.query = text;
-    }
-
+    // for (let r in Talk.querySort) {
+    //   let m = Talk.querySorting[r];
+    //   text = text.replace(new RegExp(r, 'im'), function() {
+    //     result.sorting.push({ type: m.type });
+    //     if (m.response) result.responseText.push(m.response);
+    //     return '';
+    //   }).trim();
+    // }
 
     
-    result.query = result.query.replace(/[?!.]/m,' ').replace(/\s+/m,' ').trim().toLowerCase();
+    // for (let c of localWay.categories) {
+    //   text = text.replace(new RegExp(c.name.replace('+', '\\+'), 'im'), function(m) {
+    //     result.modifiers.push({ type: 'category', category: c }); 
+    //     // return m;
+    //     return '';
+    //   }).trim();
+    // }
 
-    for (let r in Phrases.dialogs) {
-      if (result.query.match(new RegExp(r, 'im'))) {
-        let response = Phrases.dialogs[r].response;
-        result.text.push(_.isArray(response) ? _.sample(response) : response);
-        result.choices = Phrases.dialogs[r].choices;
-      }
-    } 
+    // for (let r in Talk.dialogs) {
+    //   if (result.query.match(new RegExp(r, 'im'))) {
+    //     let response = Talk.dialogs[r].response;
+    //     result.responseText.push(_.isArray(response) ? _.sample(response) : response);
+    //     result.choices = Talk.dialogs[r].choices;
+    //   }
+    // } 
 
-    for (let i = 0; i < result.text.length; i++) {
-      result.text[i] = result.text[i].replace('QUERY', result.query);
-    }
 
-    // TODO получить amenityName cuisineName 
-    result.query = result.query.replace(/кухн\S*/im, function() {
-      result.modifiers.push({ type: 'category', category: { name: 'Ресторан' }});
-      return '';
-    });
-
+    // text = text.replace(new RegExp(Talk.query, 'im'), function(m, m1, m2) {
+    //   message.query = m2;      
+    //   return '';
+    // }).trim();
     
-    return result;
+
+    // if (!message.query) {
+    //   message.query = text;
+    // }
+    
+    // message.query = message.query.replace(/[?!.]/m,' ').replace(/\s+/m,' ').trim().toLowerCase();
+
+
+    // // TODO получить amenityName cuisineName 
+    // message.query = message.query.replace(/кухн\S*/im, function() {
+    //   message.modifiers.push({ type: 'category', category: { name: 'Ресторан' }});
+    //   return '';
+    // });
+
+    // if (!message.sorting.length) {
+    //   // случайный из нескольких c высоким рейтингом
+    //   message.sorting.push({ type: 'randomBest' });
+    // }
+
+    // for (let i = 0; i < response.length; i++) {
+    //   response[i] = response[i].replace('QUERY', message.query);
+    // }
+  
   }
 
+
+
   onMessage (msg) {
-    console.log('message:', msg.userId, msg.text);
-    let result = this.processMessageText(msg.text, true);
-    // console.log('processed message', result);
 
-    if (result.choices) {
-      msg.reply({ text: result.text.join('\n'), keyboard: result.choices });
-    } else if (result.query || _(result.modifiers).pluck('type').include('category')) {
+    this.processMessageText(msg.text).then(function(responses) {
+      dialogs.insert({ 
+        userId: msg.userId, 
+        message: msg.text, 
+        responses: responses
+      }, function (err, newDoc) {
 
-      let searchOptions = { query: result.query };
-      let c = _(result.modifiers).find({ type: 'category' });
-      if (c) searchOptions.categoryName = c.category.name;
-
-      let requests = [];
-
-      if (_(result.sorting).pluck('type').intersection(['best', 'randomBest']).value().length) {
-        requests.push(localWay.searchRandomBest(searchOptions));
-      }
-      
-      if (_.compact(result.query.split(/\s+/)).length > 1) {
-        requests.push(localWay.search(searchOptions));
-      }
-
-
-      Q.all(requests).then(function(searchResults) {    
-        let normal = searchResults[0];
-        let exact = searchResults[1] || [];
-        
-
-        if (!normal.length && !exact.length) {
-          msg.reply({ text: [].concat(result.text, Phrases.notFound, Phrases.help).join('\n') });
-        } else {
-          let p = normal[0];
-
-          let match;
-          if (exact.length) {
-            // console.log('find exact');
-            match = localWay.matchPlaces(exact, result.query);
-          }
-
-          if (match) { 
-            p = match;
-          } 
-
-          console.log('place:', p._id, p.name, p.aliases, p.address, p.lat, p.lon);
-          // console.log(p);
-
-          let poiId = p._id.split('af')[0];
-          let city = localWay.agglomerationReadableIdById(p.agglomeration);
-          p.link = `https://localway.ru/${ city }/poi/${ p.readableId }_${ poiId }`;
-
-          if (_.include(result.modifiers, 'best')) {
-            result.text.concat();
-          }
-
-          result.text = result.text.concat(Phrases.place(p));
-        
-          msg.reply({ text: result.text.join('\n') })
-            .then(function() {
-              return msg.reply({ image: localWay.image(poiId, p.cover) }).then(function() {
-                // return msg.reply({ location: { lat: p.lat, lon: p.lon }});
-              });
-            });
-        } 
       });
-    } else {
-      result.text.push(_.sample(Phrases.callsToAction));
-      msg.reply({ text: result.text.join('\n') });
-    }
+
+      // console.log(msg.text, responses);
+
+      if (!_.isArray(responses)) responses = [responses];
+      _(responses).map(function(r) {
+        return function() { 
+          if (_.isString(r)) r = { text: r };
+          if (!_.isArray(r.text)) r.text = [r.text];
+          return msg.reply({ text: r.text.join('\n'), keyboard: r.choices  });  
+        };
+      }).reduce(Q.when, Q());
+
+
+
+    });
+
+
+    //   if (processedMessage.query || _(processedMessage.modifiers).pluck('type').include('category')) {
+
+    //     this.searchForPlace(processedMessage).then(function(place) {
+    //       if (place) {
+    //         response.text = response.text.concat(Talk.place(place));
+    //       } else {
+    //         response.text = response.text.concat(Talk.notFound, Talk.help); 
+    //       }
+
+    //       msg.reply({ text: response.text.join('\n') })
+    //         .then(function() {
+    //           if (!place) {
+    //             return;
+    //           }
+    //           return msg.reply({ image: place.coverImage() }).then(function() {
+    //             // return msg.reply({ location: { lat: place.lat, lon: place.lon }});
+    //           });
+    //         });
+    //     });
+
+    //   } else if (response.text.length) {
+    //     msg.reply({ text: response.text.join('\n') });
+    //   }
+
+    // });
+    
+     
   }
 };
