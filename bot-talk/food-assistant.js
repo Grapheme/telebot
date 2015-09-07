@@ -49,10 +49,7 @@ let dialogsWithChoices = {
 };
 
 
-
-
 module.exports = {
-
   match: [],
   response: function() {}
 };

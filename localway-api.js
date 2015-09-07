@@ -100,8 +100,10 @@ module.exports = class LocalWayApi {
     });
   }
 
+
+
   searchRandomBest(options) {
-    return this.search(_.extend(options, { sortBy: 'rating' })).then(function(places) {
+    return this.search(_.extend({ sortBy: 'rating' }, options)).then(function(places) {
       let top =  _.chain(places).filter(function(p) { return p.rating > 4.7; }).value();
       let top10 = _.chain(places).slice(0,10).value();
       let best = _.max([top, top10], function(q) { return q.length; });
@@ -110,9 +112,14 @@ module.exports = class LocalWayApi {
     });
   }
   
-  // searchClosestBest(options) {
-    
-  // }
+  searchRandomClosest(options) {
+    return this.searchRandomBest(_.extend({ sortBy: 'geoDistance' }, options));
+  }
+
+  searchRandomCheapest(options) {
+    return this.searchRandomBest(_.extend({ sortBy: 'price', 'sort.dir': 'asc' }, options));
+  }
+
 
   image(poiId, imageId, size) {
     // return request(`https://img.localway.ru/fullsize/${ id }.jpg`);
@@ -138,7 +145,6 @@ module.exports = class LocalWayApi {
     let city = this.agglomerationReadableIdById(p.agglomeration);
     p.link = `https://localway.ru/${ city }/poi/${ p.readableId }_${ poiId }`;
     // p.image = `http://img.localway.ru/scaled/poi/${poiId}/${ p.cover }/510x270.jpg`;
-
     p.coverImage = function() {
       return this.image(poiId, p.cover);
     }.bind(this);

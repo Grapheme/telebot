@@ -1,13 +1,14 @@
 'use strict';
 var _ = require('lodash');
 var async = require('async');
-
-
+var Q = require('q');
 var Talk = require('./bot-talk');
 var Datastore = require('nedb');
-var dialogs = new Datastore(); //{ filename: 'path/to/datafile', autoload: true }
+var history = new Datastore(); //{ filename: 'path/to/datafile', autoload: true }
 
-var Q = require('q');
+history.lastMessagesById = function(userId) {
+  return this.find({ userId: userId }).sort({ time: -1 }).limit(2);
+};
 
 module.exports = class Bot {
   constructor() {
@@ -24,176 +25,136 @@ module.exports = class Bot {
 
   start() {
     for (let a of this.adapters) {
-      a.on('text', function() {
+      let listener = function() {
         try {
           this.onMessage.apply(this, arguments);
         } catch(e) {
-          console.log('Error onMessage', e.stack);
+          console.log('onMessage error:', e, e.stack);
         }
+      }.bind(this);
 
-      }.bind(this));
-      
-      a.on('location', this.onLocation.bind(this));
-
+      a.on('text', listener);
+      a.on('location', listener);
       a.start();
       console.log('Bot started...');
     }
   }
 
   processMessageText (msg) {
-    let text = msg.text;
-    let reply = msg.reply;
-
-
-    /*
-    1
-    привет -> func  текст меню
-
-    2
-    пицца рядом, обед поблизости -> запрос пицца, ждать геолокации, 'пришли место'
-    если сообщение геолокация - то искать 
-    если сообщение не геолокация - искать
-    отправил место - клавиатура - жду ответа отлично отлично нет неи
-
-    3
-    ДА, ОТЛИЧНО - понравилось
-
-    4
-    ДРУГОЕ МЕСТО, нет, все плохо  - не понравивлось
-
-    5
-    НА КАРТЕ - последнке место и показывает на карте
-
-    6
-    ЕЩЕ ФОТО - последнее место и показывает его фотки
-
-    7
-    ЗАБРОНИРОВАТЬ СТОЛИК -- ищу последнее место даю ссылку на бронирование
-     
-    8 
-    скажи как тебя зовут
-    если следующее сообщение того
-    если нет - пиздюк
-    привет kk - (меня)?\s+?(зовут)?([^\.\,]+)
-
-    
-    9 ресторан парк покушать - обычный поиск
-    
-    */
-
-    var deferred = Q.defer();
-
-    let message = {
-      original: text,
-      query: '',
-      modifiers: [],
-      sorting: []
-    };
-
     let matched;
     let dialog = _.find(Talk.dialogs, function(dialog) { 
       if (!_.isArray(dialog.match)) dialog.match = [dialog.match];
-      for (let r of dialog.match) {
-        let m = text.match(new RegExp(r, 'im'));
-        if (m) {
-          matched = r;
-          return true;
-        } 
+      if (msg.text && _.include(dialog.responseFor, 'text')) {
+        for (let r of dialog.match) {  
+          let m = msg.text.match(new RegExp(r, 'im'));
+          if (m) {
+            matched = r;
+            return true;
+          } 
+        }
       }
+
+      if (msg.location)
+
       return false;
-    });
+    }.bind(this));
 
-    if (!dialog) dialog = Talk.defaultDialog;
+    if (!dialog) {
+      dialog = Talk.defaultDialog;
+    }
 
-    let history = dialogs.find({ userId: msg.userId, time: { $gt: Date.now() - 30 * 60 * 1000 } });
+    if (!dialog) {
+      console.log('unkonwn phrase:', msg.text);
+      return Q.when({ text: [Talk.unkonwnPhrase, Talk.help] });
+    }
 
-    Q.when(dialog.response(message, matched, reply, history)).then(function(responses) {
-      deferred.resolve(responses);
-    });
-    
-    return deferred.promise;
-
-    // for (let i = 0; i < response.length; i++) {
-    //   response[i] = response[i].replace('QUERY', message.query);
-    // }  
+    return Q.when(dialog.response(msg, matched, history));
   }
 
   onMessage (msg) {
     console.log('on message', msg);
 
-    this.processMessageText(msg).then(function(responses) {
-      dialogs.insert({ 
-        userId: msg.userId,
-        time: Date.now(), 
-        type: 'incoming',
-        message: msg.text, 
-        responses: responses,
-        need: _.find(responses, { needLocation: true }) ? 'location' : ''
-      });
-      
-      function normalizeResponse(r) {
-        r.userId = msg.userId;
+    history.insert({ 
+      time: Date.now(), 
+      userId: msg.userId,
+      text: msg.text,
+      location: msg.location,
+      type: 'incoming'
+    });
 
-
-
-        if (_.isString(r)) r = { text: r };
-        if (r.text && _.isArray(r.text)) {
-          r.text = r.text.join('\n');
-        }
-        if (r.choices) {
-          r.keyboard = r.choices;
-          delete r.choices;
-        }
-
-        // console.log('r', r);
-
-        return r;
+    history.lastMessagesById(msg.userId).exec(function(err, messages) {
+      let lastUserMessage;
+      if (!err && messages.length === 2 && messages[0].needUserReply) {
+        // lastUserMessage = messages[1];
+        // lastUserMessage.reply = msg;
+        // console.log('q', messages[0]);
       }
 
-      if (!_.isArray(responses)) responses = [responses];
+      let sendResponses = _.bind(this.sendResponses, this, msg.userId);
 
-      let adapter = this.adapterByUserId(msg.userId);
-
-      // console.log('sdsd', msg.text, responses);
-
-      responses
-        .map(normalizeResponse)
-        .map(function(r) {
-          return function() {           
-            console.log('sent', _.keys(r));
-            return adapter.reply(r);
-          };
-        })
-        .reduce(Q.when, Q());
-
-
+      if (lastUserMessage && lastUserMessage.needUserReply) {
+        this.processMessageText(lastUserMessage)
+          .then(sendResponses, function() {
+            this.processMessageText(msg)
+              .then(sendResponses);
+          }.bind(this));
+      } else {
+        this.processMessageText(msg)
+          .then(sendResponses);
+      }
     }.bind(this));
   }
 
-  onLocation (msg) {
-    console.log('onLocation', msg);
+  sendResponses(userId, responses) {
+    if (!_.isArray(responses)) {
+      responses = [responses];
+    }
 
-    dialogs.insert({ 
-      userId: msg.userId, 
-      time: Date.now(),
-      location: msg.location
+    history.insert({
+      time: Date.now(), 
+      userId: userId, 
+      type: 'outgoing',
+      responses: responses,
+      needUserReply: Boolean(_.find(responses, 'need'))
     });
 
-    
+    let adapter = this.adapterByUserId(userId);
 
-    dialogs.find({ userId: msg.userId, type: 'incoming' }).sort({ time: -1 }).limit(1).exec(function (err, docs) {
-      // docs contains Earth
-      // console.log('find last message', err, docs);
-      if (err || !docs.length ) return;
+    // console.log('sdsd responses', responses);
 
-      this.onMessage({
-        userId: docs[0].userId,
-        text: docs[0].message,
-        reply: {
-          location: msg.location
-        }
-      });
+    responses
+      .map(this.normalizeResponse)
+      .map(function(r) {
+        r.userId = userId;
 
-    }.bind(this));
+        return function() {           
+          console.log('sent', r);
+          return adapter.send(r);
+        };
+      })
+      .reduce(Q.when, Q());
+  }
+
+  normalizeResponse (r) {
+    let normalized = {};
+    if (r.text) {
+      normalized.text = r.text;
+    }
+    if (r.location) {
+      normalized.location = r.location;
+    }
+
+    if (_.isString(r)) {
+      normalized.text =  r;
+    }
+    if (_(normalized.text).isArray()) {
+      normalized.text = normalized.text.join('\n');
+    }
+    if (r.choices) {
+      normalized.keyboard = r.choices;
+      delete r.choices;
+    }
+
+    return normalized;
   }
 };
