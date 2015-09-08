@@ -3,6 +3,8 @@
 var _ = require('lodash');
 
 module.exports = {
+  accept: ['text'],
+
   priority: 1,
   match: [
     'test',

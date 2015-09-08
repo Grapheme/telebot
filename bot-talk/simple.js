@@ -80,6 +80,8 @@ module.exports = {
   priority: 2,
   match: _.keys(simpleDialogs),
 
+  accept: ['text'],
+
   response: function(message, match) {
     return _.sample(simpleDialogs[match]);
   }

@@ -24,7 +24,7 @@ module.exports = {
   default: true,
   priority: 1,
 
-  responseFor: ['text', 'location'],
+  accept: ['text', 'location'],
   
   match: [
     '(найд|найти|искать|ищи|где|подскаж|покаж|как)\\S*\\s*'

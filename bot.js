@@ -44,7 +44,7 @@ module.exports = class Bot {
     let matched;
     let dialog = _.find(Talk.dialogs, function(dialog) { 
       if (!_.isArray(dialog.match)) dialog.match = [dialog.match];
-      if (msg.text && _.include(dialog.responseFor, 'text')) {
+      if (msg.text && _.include(dialog.accept, 'text')) {
         for (let r of dialog.match) {  
           let m = msg.text.match(new RegExp(r, 'im'));
           if (m) {
