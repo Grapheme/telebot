@@ -1,6 +1,7 @@
 'use strict';
 var _ = require('lodash');
 
+let Dialog = require('./dialog');
 
 // простые диалоги
 let simpleDialogs = {
@@ -76,14 +77,32 @@ let simpleDialogs = {
   ],
 };
 
-module.exports = {
-  priority: 2,
-  match: _.keys(simpleDialogs),
+module.exports = class Simple extends Dialog {
+  constructor() {
+    super();
+    // priority: 2,
+    // match: _.keys(simpleDialogs),
 
-  accept: ['text'],
+    // accept: ['text'],
 
-  response: function(message, match) {
-    return _.sample(simpleDialogs[match]);
+    // response: function(message, match) {
+      // return _.sample(simpleDialogs[match]);
+    // }
+  }
+
+  response(msg) {
+    for (let m in simpleDialogs) {
+      if (msg.text.match(new RegExp(m,'im'))) {
+        
+        return {
+          dialog: this,
+
+          responses: [{
+            text: _.sample(simpleDialogs[m])
+          }]
+        };
+      }  
+    }
   }
 };
 

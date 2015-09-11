@@ -2,7 +2,7 @@
   "name": "localway_bot",
   "version": "0.0.1",
   "description": "",
-  "main": "app.js",
+  "main": "index.js",
   "scripts": {
     "test": "mocha",
     "start": "node app.js",

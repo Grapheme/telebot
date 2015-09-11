@@ -71,7 +71,7 @@ module.exports = class TelegramAdatper {
       disable_web_page_preview: true 
     }, options || {});
 
-    console.log('sendMessage', data);
+    // console.log('sendMessage', data);
     return Q(this.api.sendMessage(chatId, text, data));
   }
 
