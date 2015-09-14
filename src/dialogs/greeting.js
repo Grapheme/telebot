@@ -6,7 +6,7 @@ let placeSearchDialog = require('./place-search').instance;
 
 let responses = {
   MORNING: {
-    phrases: ['Доброе утро, слушаю внимательно'],
+    phrases: [['Доброе утро','cлушаю внимательно']],
     
     choices: [
       'Место для завтрака',
@@ -17,7 +17,7 @@ let responses = {
   },
 
   NOON: {
-    phrases: ['Привет, чем могу помочь?'],
+    phrases: [['Привет','Чем могу помочь?']],
     choices: [
       'Место для обеда',
       ['Бизнес-ланч','Кофе'],
@@ -27,7 +27,7 @@ let responses = {
   },
 
   EVENING: {
-    phrases: ['Приветствую, тебя человек.\nЧто я могу найти для тебя?'],
+    phrases: [['Приветствую, тебя человек.', 'Что я могу найти для тебя?']],
     choices: [
       'Место для ужина',
       'Отличные бары',
@@ -37,7 +37,7 @@ let responses = {
   },
 
   HOLIDAY_MORNING: {
-    phrases: ['Привет, что я могу сделать для тебя в это чудесное утро?'],
+    phrases: [['Привет!','Что я могу сделать для тебя в это чудесное утро?']],
     choices: [
       'Mесто для завтрака',
       'Кофе','Бранч',
@@ -73,7 +73,7 @@ module.exports = class Greeting extends Dialog {
   // ],
 
   getChildren() {
-    let r = responses[this.getResponseType()];
+    // let r = responses[this.getResponseType()];
     //
   }
 
@@ -90,15 +90,14 @@ module.exports = class Greeting extends Dialog {
 
   response(message) {
     let r = responses[this.getResponseType()];
-    
-    return {
+    let result = {
       dialog: this,
-
-      responses: [{
-        text: _.sample(r.phrases),
-        choices: r.choices
-      }]
+      responses: _.map(_.sample(r.phrases), function(s) { return { text: s }; })
     };
+
+    _.last(result.responses).choices = r.choices;
+    
+    return result;
   }
 };
 

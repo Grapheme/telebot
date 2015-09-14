@@ -204,7 +204,13 @@ module.exports = class Bot {
 
         return function() {           
           // console.log('sending', r);
-          return adapter.send(r);
+          return adapter
+            .send(r)
+            .then(function() {
+                return Q.Promise(function(resolve) {
+                  setTimeout(resolve, 1 * 1000);
+                });
+            });
         };
       })
       // oh sequential promises 
