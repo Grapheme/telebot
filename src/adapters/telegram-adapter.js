@@ -52,6 +52,10 @@ module.exports = class TelegramAdatper {
             return _(i).isArray() ? i : [i];
           })
         });
+      } else {
+        options.reply_markup = JSON.stringify({
+          hide_keyboard: true
+        });
       }
       
       return this.sendMessage(id, msg.text, options);
