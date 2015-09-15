@@ -130,7 +130,7 @@ module.exports = class PlaceSearch extends Dialog {
   onFoundPlace(place) {
     if (!place) {
       console.log('not  fouuuun!');
-      return this.notFound.response();
+      return this.placeNotFound.response();
     }
 
     return this.placeFound.responseForPlace(place);
@@ -171,6 +171,10 @@ module.exports = class PlaceSearch extends Dialog {
       result.modifiers.push({ type: 'category', category: { name: 'Ресторан' }});
       return '';
     });
+
+    if (!_.find(result.modifiers, { type: 'category' })) {
+      result.modifiers.push({ type: 'category', category: { name: 'Ресторан' }});
+    }
 
     if (!result.sorting.length) {
       result.sorting.push({ type: 'randomBest' });
