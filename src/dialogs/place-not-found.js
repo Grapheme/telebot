@@ -1,6 +1,6 @@
 'use strict';
 
-let Dialog = require('../dialog');
+let Dialog = require('./dialog');
 let _ = require('lodash');
 
 

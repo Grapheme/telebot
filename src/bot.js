@@ -5,8 +5,8 @@ let Q = require('q');
 let requireDir = require('require-dir');
 
 let Dialog = require('./dialogs/dialog');
-let rootDialog = require('./dialogs/root-dialog').instance;
-let simple = require('./dialogs/simple').instance;
+let RootDialog = require('./dialogs/root-dialog');
+let SimpleDialog = require('./dialogs/simple');
 
 let Datastore = require('nedb');
 let history = new Datastore(); //{ filename: 'path/to/datafile', autoload: true }
@@ -28,7 +28,8 @@ history.lastPlaceMessage = function(userId, func) {
 module.exports = class Bot {
   constructor(options) {
     this.adapters = [];
-    this.rootDialog = rootDialog;
+    this.rootDialog = new RootDialog();
+    this.simpleDialog = new SimpleDialog();
 
     let adapters = requireDir('./adapters');
 
@@ -95,7 +96,7 @@ module.exports = class Bot {
 
     // бесполезный разговор который не меняет текущий диалог
     if (!dialog) {
-      let s = simple.response(msg);
+      let s = this.simpleDialog.response(msg);
       if (s) {
         return Q.when({ lastDialogPath: lastDialog.getPath(), responses: s.responses });
       }

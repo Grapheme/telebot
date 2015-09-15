@@ -1,7 +1,7 @@
 'use strict';
 
-let Dialog = require('../../dialog');
-let placeSearch = require('../../place-search').instance;
+let Dialog = require('./dialog');
+// let PlaceSearch = require('./place-search');
 
 module.exports = class Negative extends Dialog { 
   constructor() {
@@ -13,9 +13,9 @@ module.exports = class Negative extends Dialog {
       
     this.match = ['Другое место', 'говно']; 
 
-    this.label = 'Другое место';
-
-    this.defaultSubdialog = placeSearch;
+    this.label = 'Другое место';  
+    
+    // this.defaultSubdialog = new PlaceSearch();
   }
 
   response(msg, history) {

@@ -1,8 +1,8 @@
 'use strict';
 
-let Dialog = require('../dialog');
+let Dialog = require('./dialog');
 let _ = require('lodash');
-// let PlaceSearch = require('../place-search');
+// let PlaceSearch = require('./place-search');
 
 module.exports = class NeedLocation extends Dialog { 
   constructor() {

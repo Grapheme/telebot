@@ -5,9 +5,8 @@ let Node = require('../../lib/node');
 let _ = require('lodash');
 
 
-class Dialog extends Singleton {
+class Dialog {
   constructor() {
-    super();
     _.extend(this, Node);
   }
   

@@ -6,9 +6,9 @@ let localWay = new LocalWayApi();
 
 let Dialog = require('./dialog');
 
-let notFound = require('./place-search/not-found').instance;
-let needLocation = require('./place-search/need-location').instance;
-let placeFound = require('./place-search/place-found').instance;
+let PlaceNotFound = require('./place-not-found');
+let PlaceFound = require('./place-found');
+let NeedLocation = require('./need-location');
 
 // for (let r in Talk.querySort) {
 //   let m = Talk.querySorting[r];
@@ -45,14 +45,19 @@ module.exports = class PlaceSearch extends Dialog {
       }
     };
 
-    this.querySort[needLocation.match[0]] = {
+    this.needLocation = new NeedLocation();
+
+    this.querySort[this.needLocation.match[0]] = {
         type: 'closest', // сортировать по расстоянию
         need: 'location'
     };
 
-    this.addChild(notFound);
-    this.addChild(needLocation);
-    this.addChild(placeFound);
+    this.placeFound = new PlaceFound();
+    this.placeNotFound = new PlaceNotFound();
+
+    this.addChild(this.needLocation);
+    this.addChild(this.placeFound);
+    this.addChild(this.placeNotFound);
   }
 
   get match() {
@@ -93,9 +98,9 @@ module.exports = class PlaceSearch extends Dialog {
 
         let search = function(processed) {
           this.searchForPlace(processed)
-            .then(this.onFoundPlace)
+            .then(this.onFoundPlace.bind(this))
             .then(function(resp) {
-              resolve(resp)
+              resolve(resp);
             })
             .fail(reject);
         }.bind(this);
@@ -107,7 +112,7 @@ module.exports = class PlaceSearch extends Dialog {
 
             if (processed.need === 'location') {
               console.log('need to ask location');              
-              resolve(needLocation.response());    
+              resolve(this.needLocation.response());    
             } else {
               console.log('normal search');
               search(processed);
@@ -125,10 +130,10 @@ module.exports = class PlaceSearch extends Dialog {
   onFoundPlace(place) {
     if (!place) {
       console.log('not  fouuuun!');
-      return notFound.response();
+      return this.notFound.response();
     }
 
-    return placeFound.responseForPlace(place);
+    return this.placeFound.responseForPlace(place);
   }
 
   processMessage(text) {

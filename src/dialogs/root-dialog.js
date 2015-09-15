@@ -3,15 +3,16 @@
 // let _ = require('lodash');
 let Dialog = require('./dialog');
 
-let greetingDialog = require('./greeting').instance;
-let placeSearchDialog = require('./place-search').instance;
+let Greeting = require('./greeting');
+let PlaceSearch = require('./place-search');
 
 module.exports = class RootDialog extends Dialog {
   constructor() {
     super();
-    this.addChild(greetingDialog);
-    this.addChild(placeSearchDialog);
+    this.ps = new PlaceSearch();
+    this.addChild(new Greeting());
+    this.addChild(this.ps);
   }
   
-  get defaultSubdialog() { return placeSearchDialog; }
+  get defaultSubdialog() { return this.ps; }
 };

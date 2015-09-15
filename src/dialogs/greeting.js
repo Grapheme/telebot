@@ -2,7 +2,7 @@
 // var Q = require('q');
 let _ = require('lodash');
 let Dialog = require('./dialog');
-let placeSearchDialog = require('./place-search').instance;
+let PlaceSearch = require('./place-search');
 
 let responses = {
   MORNING: {
@@ -53,7 +53,7 @@ module.exports = class Greeting extends Dialog {
     
     this.accept = ['text'];
 
-    this.defaultSubdialog = placeSearchDialog;
+    this.defaultSubdialog = new PlaceSearch();
   }
 
   get match() { return [

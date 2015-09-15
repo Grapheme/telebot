@@ -1,16 +1,16 @@
 'use strict';
 
-let Dialog = require('../dialog');
+let Dialog = require('./dialog');
 // let _ = require('lodash');
-let positive = require('./place-found/positive').instance;
-let negative = require('./place-found/negative').instance;
+let Positive = require('./positive');
+let Negative = require('./negative');
 
 module.exports = class PlaceFound extends Dialog { 
   constructor() {
     super();
 
-    this.addChild(negative);
-    this.addChild(positive);
+    this.addChild(new Negative());
+    this.addChild(new Positive());
 
     // this.accept = ['text'];
     // this.match = [
