@@ -66,6 +66,9 @@ module.exports = class TelegramAdatper {
     }
 
     if (msg.image) {
+      // if (_(msg.image).isString()) {
+        // return this.sendPhotoByUrl(msg.image);
+      // }
       return this.sendPhoto(id, msg.image);
     }
   }
@@ -83,25 +86,8 @@ module.exports = class TelegramAdatper {
     return this.api.sendLocation(chatId, location.lat, location.lon);
   }
 
-  // sendPhoto (chatId, photo) {
-  //   return this.api.sendMessage(chatId, photo);
-  // }
-
-  sendPhoto(chatId, photo) {
-    // console.log('sendPhoto', chatId, photo);
-    let deferred = Q.defer();
-    request.post({ url: `https://api.telegram.org/bot${ this.token }/${ 'sendPhoto' }`, formData: {
-      chat_id: chatId,
-      photo: photo
-    }}, function(err, response, body) {
-      if (!err) {
-        deferred.resolve();
-      } else {
-        deferred.reject(err);
-        console.log('sendPhoto error', err);
-      }
-    });
-    return deferred.promise;
+  sendPhoto (chatId, photo) {
+    return this.api.sendPhoto(chatId, photo);
   }
 };
 

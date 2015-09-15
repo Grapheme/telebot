@@ -84,7 +84,7 @@ module.exports = class PlaceSearch extends Dialog {
       });
     }
     return Q.Promise(function(resolve, reject) {
-      return Q.when(text).then(function(text) {
+      return Q.when(text).fail(reject).then(function(text) {
 
         let processed = this.processMessage(text);
 
@@ -95,17 +95,18 @@ module.exports = class PlaceSearch extends Dialog {
           this.searchForPlace(processed)
             .then(this.onFoundPlace)
             .then(function(resp) {
-              resolve(resp);
-            });
+              resolve(resp)
+            })
+            .fail(reject);
         }.bind(this);
 
         // ищем
-        history.find({ userId: message.userId, type: 'incoming', time: { $gt: Date.now() - 30 * 60 * 1000 }, location: { $exists: true } }).sort({ location: -1 }).limit(1).exec(function(err, docs) {
+        history.lastLocationMessage(message.userId, function(err, docs) {
           if (err || !docs.length ) {
-            console.log('not found in history');
+            console.log('location not found in history');
 
             if (processed.need === 'location') {
-              console.log('neeed location');              
+              console.log('need to ask location');              
               resolve(needLocation.response());    
             } else {
               console.log('normal search');
@@ -223,7 +224,7 @@ module.exports = class PlaceSearch extends Dialog {
             place = match;
           }
         }
-
+        
         console.log('first result "normal"', normal[0].name);
 
         console.log('place:', place._id, place.name);

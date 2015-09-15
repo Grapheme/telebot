@@ -13,7 +13,6 @@ module.exports = class PlaceFound extends Dialog {
     this.addChild(positive);
 
     // this.accept = ['text'];
-    
     // this.match = [
       // '(недалек|ближай|рядом|вокруг|поблизост|около меня)\\S*'
     // ];
@@ -30,12 +29,14 @@ module.exports = class PlaceFound extends Dialog {
   }
 
   responseForPlace(place) {
-    // console.log('sdsd path', this.getPath());
-
-    return {
-      dialog: this,
-      responses: [{ text: this.placeText(place) }, { image: place.coverImage() }]
-    };
+    return place.coverImage()
+      .then(function(image) {
+      
+      return {
+        dialog: this,
+        responses: [{ text: this.placeText(place) }, { image: image }]
+      };
+    }.bind(this));  
   }
 
   // response() {

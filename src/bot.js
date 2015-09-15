@@ -11,8 +11,18 @@ let simple = require('./dialogs/simple').instance;
 let Datastore = require('nedb');
 let history = new Datastore(); //{ filename: 'path/to/datafile', autoload: true }
 
-history.lastOutgoingMessageByUserId = function(userId) {
-  return this.find({ userId: userId, type: 'outgoing' }).sort({ time: -1 }).limit(1);
+history.lastOutgoingMessage = function(userId, func) {
+  return this.find({ userId: userId, type: 'outgoing' }).sort({ time: -1 }).limit(1).exec(func);
+};
+
+// location last 30 min
+history.lastLocationMessage = function(userId, func) {
+  return this.find({ userId: userId, type: 'incoming', time: { $gt: Date.now() - 30 * 60 * 1000 }, location: { $exists: true } }).sort({ time: -1 }).limit(1).exec(func);
+};
+
+// place last 5 min 
+history.lastPlaceMessage = function(userId, func) {
+  return this.find({ userId: userId, type: 'outgoing', time: { $gt: Date.now() - 5 * 60 * 1000 }, meta: {  place: { $exists: true } } }).sort({ time: -1 }).limit(1).exec(func);
 };
 
 module.exports = class Bot {
@@ -58,13 +68,11 @@ module.exports = class Bot {
   processMessage (msg, lastDialog) {
     let matched;
 
-    console.log(
-      'processMessage', 
-      lastDialog.getPath(), 
-      lastDialog.getChildren().map(function(c) { return [c.getPath(), c.match]; }) ,
-      lastDialog.defaultSubdialog ? lastDialog.defaultSubdialog.getPath() : '',
-      'бллллл'
-    );
+    console.log('\ndialogs for response:');
+    console.log(lastDialog.getPath());
+    lastDialog.getChildren().map(function(c) { return console.log(c.getPath(), c.match.join(',')); });
+    console.log(lastDialog.defaultSubdialog ? lastDialog.defaultSubdialog.getPath() : '');
+    console.log('\n');
 
     let dialog = _.find(lastDialog.getChildren(), function(d) { 
       if (msg.text && d.match && d.match.length) {
@@ -107,7 +115,7 @@ module.exports = class Bot {
   }
 
   onMessage (msg) {
-    console.log('on message', msg);
+    console.log('\non message', msg);
 
     history.insert({ 
       time: Date.now(), 
@@ -116,30 +124,23 @@ module.exports = class Bot {
       location: msg.location,
       type: 'incoming'
     }, function(err) {
-      console.log('err', err);
+      if (err) console.log('history insert err', err);
     });
-
 
     setTimeout(function() {
+      history.find({}).sort({ time: -1 }).exec(function(err, docs) {
+        let r = _.map(docs, function(msg) { 
+          return msg.text ? `> time: ${ msg.time }, text: ${ msg.text }` : `< time: ${msg.time  } dialog: ${ msg.dialog }`; 
+        });
 
-
-
-    history.find({}).sort({ time: -1 }).exec(function(err, docs) {
-      let r = _.map(docs, function(msg) { 
-        return msg.text ? `time: ${ msg.time }, text: ${ msg.text }` : `time: ${msg.time  } dialog: ${ msg.dialog }`; 
+        console.log('\n\n\n on message history', r);    
+        console.log('\n\n\n');
       });
-
-      console.log('\n\n\n on message history', r);    
-      console.log('\n\n\n');
-    });
-
     }, 4 * 1000);
 
 
-    history.lastOutgoingMessageByUserId(msg.userId).exec(function(err, messages) {
+    history.lastOutgoingMessage(msg.userId, function(err, messages) {
       let lastDialog;
-
-      console.log('sdsd heelo!');
 
       if (err || !messages.length || !messages[0].dialog || Date.now() - messages[0].time > 5 * 60 * 1000) {
 
@@ -148,21 +149,27 @@ module.exports = class Bot {
         lastDialog = this.rootDialog.find(messages[0].dialog);
       } 
 
-      console.log('on Message', lastDialog.getPath());
+      // console.log('on Message', lastDialog.getPath());
 
       let sendResponses = _.bind(this.sendResponses, this, msg.userId);
 
       this.processMessage(msg, lastDialog)
         .then(function (result)  {
+          
 
           let simpleResults = _.map(result.responses, function(r) { 
+            // console.log('rr', r.image);
+
             return { 
+              meta: r.meta || {},
               text: r.text, 
-              image: r.image && r.image.url 
+              image: Boolean(r.image)
             }; 
           });
 
-          console.log('processMessage result', simpleResults);
+          console.log('processMessage responses', simpleResults);
+
+          
 
           history.insert({
             time: Date.now(), 
@@ -171,7 +178,7 @@ module.exports = class Bot {
             responses: simpleResults,
             dialog: (result.dialog ? result.dialog.getPath() : '')
           }, function(err) {
-            console.log('err', err);
+            if (err) console.log('history insert err', err);
           });
 
           return result;
@@ -183,7 +190,10 @@ module.exports = class Bot {
           // console.log('choices????', result.responses[0].choices);
           return result.responses;
         })
-        .then(sendResponses);
+        .then(sendResponses)
+        .fail(function(err) {
+          if (err) console.log('Error processing message', err, err.stack);
+        });
         
     }.bind(this));
   }
@@ -195,7 +205,7 @@ module.exports = class Bot {
 
     let adapter = this.adapterByUserId(userId);
 
-    // console.log('send responses', responses);
+    
 
     responses
       .map(this.normalizeResponse)
@@ -206,6 +216,9 @@ module.exports = class Bot {
           // console.log('sending', r);
           return adapter
             .send(r)
+            .fail(function(err) {
+              console.log('error sending', err);
+            })
             .then(function() {
                 return Q.Promise(function(resolve) {
                   setTimeout(resolve, 1 * 1000);

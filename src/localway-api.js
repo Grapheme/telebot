@@ -7,6 +7,19 @@ var Q = require('q');
 
 let geolib = require('geolib');
 
+let fs = require('fs');
+
+
+var tmp = './tmp';
+if (!fs.existsSync(tmp)) {
+  fs.mkdirSync(tmp);
+} else {
+  fs.readdir(tmp, function(err, files){
+    files.forEach(function(f) {  fs.unlink(tmp + '/' + f); });
+  });
+}
+
+
 
 
 module.exports = class LocalWayApi {
@@ -122,11 +135,27 @@ module.exports = class LocalWayApi {
 
 
   image(poiId, imageId, size) {
-    // return request(`https://img.localway.ru/fullsize/${ id }.jpg`);
     if (!size) {
       size = '510x270';
     }
-    return request(`http://img.localway.ru/scaled/poi/${poiId}/${imageId}/${size}.jpg`);
+
+
+    let url = `http://img.localway.ru/scaled/poi/${poiId}/${imageId}/${size}.jpg`;
+    let name = `${ tmp }/${imageId}-${size}.jpg`;
+
+    return Q.Promise(function(resolve, reject) {
+      if (fs.existsSync(name)) {
+        return resolve(name);
+      }
+      
+      let r = request(url, function(err, response, body) {
+        if (err) return reject(err);
+        console.log('download err', err, url, response.constructor.name);
+        resolve(name);
+      });
+
+      r.pipe(fs.createWriteStream(name));
+    });
   }
 
   matchPlaces(places, query) {
