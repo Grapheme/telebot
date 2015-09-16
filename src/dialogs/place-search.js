@@ -12,23 +12,6 @@ let NeedLocation = require('./need-location');
 
 let History = require('../history').instance;
 
-// for (let r in Talk.querySort) {
-//   let m = Talk.querySorting[r];
-//   text = text.replace(new RegExp(r, 'im'), function() {
-//     result.sorting.push({ type: m.type });
-//     if (m.response) result.responseText.push(m.response);
-//     return '';
-//   }).trim();
-// }
-
-
-// for (let i = 0; i < response.length; i++) {
-//   response[i] = response[i].replace('QUERY', message.query);
-// }
-
-// text -> 
-
-
 
 module.exports = class PlaceSearch extends Dialog {  
   constructor() {
@@ -36,8 +19,20 @@ module.exports = class PlaceSearch extends Dialog {
 
     this.accept = ['text', 'location'];
 
-    this.needLocation = new NeedLocation();
+    let lastSearch = function(userId) {
+      return History.last({ userId: userId, 'meta.search': true  })
+        .then(function(message) {
+          return message.meta.message;
+        });
+    };
 
+    this.needLocation = new NeedLocation({
+      onLocation: function(message) {
+        return lastSearch(message.userId)
+          .then(this.response.bind(this));
+      }.bind(this)
+    });
+    
     this.placeFound = new PlaceFound();
     this.placeNotFound = new PlaceNotFound();
 
@@ -64,26 +59,25 @@ module.exports = class PlaceSearch extends Dialog {
 
   get match() {
     return [
-      '(найд|найти|искать|ищи|где|подскаж|покаж|как|место для)(\\S*)?\\s*'
+      '(найд|найти|искать|ищи|где|подскаж|покаж|место для)(\\S*)?\\s*'
     ];
   }
 
   response(message, meta) {
     let text = message.text;
 
-    if (!text && message.location) {
-      text = Q.Promise(function(resolve) {
-          History.lastIncomingTextMessage(message.userId, function(err, docs) {
-            console.log('find text', err, docs);
-
-            if (!err && docs[0]) {
-              resolve(docs[0].text);
-            } else {
-              resolve('');
-            }
-          });
-      });
-    }
+    // if (!text && message.location) {
+    //   text = Q.Promise(function(resolve) {
+    //       History.lastIncomingTextMessage(message.userId)
+    //         .then(function(message) {
+    //           console.log('find text', message);
+    //           resolve(message.text);
+    //         })
+    //         .fail(function() {
+    //           resolve('');
+    //         });
+    //   });
+    // }
 
     return Q.Promise(function(resolve, reject) {
       return Q.when(text)
@@ -103,23 +97,27 @@ module.exports = class PlaceSearch extends Dialog {
         }.bind(this);
 
         // ищем
-        History.lastLocationMessage(message.userId, function(err, docs) {
-          if (err || !docs.length ) {
-            console.log('location not found in History');
+        History.lastLocationMessage(message.userId)
+          .then(function(locationMessage) {
+            if (!locationMessage) {
+              console.log('search:','location not found in History');
 
-            if (processed.need === 'location') {
-              console.log('need to ask location');              
-              resolve(this.needLocation.response());    
+              if (processed.need === 'location') {
+                console.log('search:','need to ask location');              
+                resolve(this.needLocation.response({}, {
+                  search: true,
+                  message: message,
+                }));    
+              } else {
+                console.log('search:','normal search');
+                search(processed);
+              }
             } else {
-              console.log('normal search');
+              console.log('search:','normal search with location');
+              processed.location = locationMessage.location;
               search(processed);
             }
-          } else {
-            console.log('normal search with location');
-            processed.location = docs[0].location;
-            search(processed);
-          }
-        }.bind(this));
+          }.bind(this));
       }.bind(this))
       .fail(reject);
     }.bind(this));
@@ -228,8 +226,6 @@ module.exports = class PlaceSearch extends Dialog {
       requests.push(localWay.search(searchOptions));
     }
 
-
-
     Q.all(requests).then(function(searchResults) {    
       let normal = searchResults[0];
       let exact = searchResults[1] || [];
@@ -246,7 +242,7 @@ module.exports = class PlaceSearch extends Dialog {
           }
         }
         
-        console.log('first result "normal"', normal[0].name);
+        // console.log('first result "normal"', normal[0].name);
 
         console.log('place:', place._id, place.name);
         // console.log('place:', place._id, place.name, place.aliases, place.address, place.lat, place.lon);

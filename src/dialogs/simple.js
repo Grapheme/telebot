@@ -92,7 +92,7 @@ module.exports = class Simple extends Dialog {
 
   response(message) {
     for (let m in simpleDialogs) {
-      if (msg.text.match(new RegExp(m,'im'))) {
+      if (message.text.match(new RegExp(m,'im'))) {
         
         return {
           dialog: this,

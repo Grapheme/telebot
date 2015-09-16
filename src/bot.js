@@ -9,6 +9,7 @@ let RootDialog = require('./dialogs/root-dialog');
 let SimpleDialog = require('./dialogs/simple');
 
 let History = require('./history').instance;
+var util = require('util');
 
 module.exports = class Bot {
   constructor(options) {
@@ -17,7 +18,6 @@ module.exports = class Bot {
     this.simpleDialog = new SimpleDialog();
 
     this.rootDialog.printTree();
-
 
     let adapters = requireDir('./adapters');
 
@@ -57,16 +57,16 @@ module.exports = class Bot {
   processMessage (msg, lastDialog) {
     let matched;
 
-    console.log('\ndialogs for response:');
-    console.log(lastDialog.getPath());
-    lastDialog.getChildren().map(function(c) { return console.log(c.getPath(), c.match.join(',')); });
-    console.log(lastDialog.defaultSubdialog ? lastDialog.defaultSubdialog.getPath() : '');
+    console.log('\nlastDialog:', lastDialog.getPath());
+    console.log('children: ');
+    lastDialog.getChildren().map(function(c) { return console.log('  ',c.getPath()); });
+    console.log('default:', lastDialog.defaultSubdialog ? lastDialog.defaultSubdialog.getPath() : '');
     console.log('\n');
 
     let dialog = _.find(lastDialog.getChildren(), function(d) { 
       if (msg.text && d.match && d.match.length) {
         for (let r of d.match) {  
-          let m = msg.text.match(new RegExp(r, 'im'));
+          let m = msg.text.match(new RegExp(r, 'im'));  
           if (m) {
             matched = r;
             return true;
@@ -74,13 +74,13 @@ module.exports = class Bot {
         }
       }
 
-
-      // if (msg.location && _.include(d.accept, 'location')) {
-      //    return true;
-      // }
+      if (msg.location && _.include(d.accept, 'location')) {
+         return true;
+      }
 
       return false;
     }.bind(this));
+
 
     // бесполезный разговор который не меняет текущий диалог
     if (!dialog) {
@@ -96,8 +96,13 @@ module.exports = class Bot {
 
 
     if (!dialog) {
-      console.log('unkonwn phrase:', msg.text);
-      return Q.when({ dialog: null, responses: [lastDialog.unkonwnPhrase || Dialog.unkonwnPhrase, lastDialog.help || Dialog.help].join('\n') });
+      console.log('unkonwn command:', msg.text);
+      return Q.when({ 
+        dialog: lastDialog, 
+        responses: [
+          { text: [lastDialog.unknown || Dialog.unknown, lastDialog.help || Dialog.help].join('\n') }
+        ]
+      });
     }
 
     return Q.when(dialog.response(msg, { matched: matched }));
@@ -117,75 +122,71 @@ module.exports = class Bot {
     });
 
     setTimeout(function() {
+      
+
       History.db.find({}).sort({ time: -1 }).exec(function(err, docs) {
-        let r = _.map(docs, function(msg) { 
-          return msg.text ? `> time: ${ msg.time }, text: ${ msg.text }` : `< time: ${msg.time  } dialog: ${ msg.dialog }`; 
+
+        console.log('\n\n\n on message History');
+
+        _.each(docs, function(msg) { 
+          console.log(util.inspect(msg, {showHidden: false, depth: 5 }), '\n'); 
+
         });
 
-        console.log('\n\n\n on message History', r);    
+           
         console.log('\n\n\n');
       });
     }, 4 * 1000);
 
 
-    History.lastOutgoingMessage(msg.userId, function(err, messages) {
-      let lastDialog;
-
-      if (err || !messages.length || !messages[0].dialog || Date.now() - messages[0].time > 5 * 60 * 1000) {
-
-        lastDialog = this.rootDialog;
-      } else {
-        lastDialog = this.rootDialog.find(messages[0].dialog);
-        if (lastDialog && !lastDialog.getChildren().length) {
-          lastDialog = this.rootDialog;
-        }
-      } 
-
-      let sendResponses = _.bind(this.sendResponses, this, msg.userId);
-
-      this.processMessage(msg, lastDialog)
-        .then(function (result)  {
-
-          let simpleResults = _.map(result.responses, function(r) { 
-            // console.log('rr', r.image);
-
-            return { 
-              meta: r.meta || {},
-              text: r.text, 
-              image: Boolean(r.image)
-            }; 
-          });
-
-          console.log('processMessage responses', simpleResults);
-          console.log('result dialog', (result.dialog ? result.dialog.getPath() : ''));
-
-          
-
-          History.insert({
-            time: Date.now(), 
-            userId: msg.userId, 
-            type: 'outgoing',
-            responses: simpleResults,
-            dialog: (result.dialog ? result.dialog.getPath() : '')
-          }, function(err) {
-            if (err) console.log('History insert err', err);
-          });
-
-          return result;
-        })
-        .then(function(result) {
-          if (result.dialog && !result.responses[0].choices) {
-            result.responses[0].choices = _.chain(result.dialog.getChildren()).pluck('label').compact().value();
-          }
-          // console.log('choices????', result.responses[0].choices);
-          return result.responses;
-        })
-        .then(sendResponses)
-        .fail(function(err) {
-          if (err) console.log('Error processing message', err, err.stack);
+    History.lastOutgoingMessage(msg.userId)
+      .then(function (message) {
+        let lastDialog = message && message.dialog && this.rootDialog.find(message.dialog);
+        if (!lastDialog) lastDialog = this.rootDialog;
+        if (!lastDialog.getChildren().length) lastDialog = this.rootDialog;
+        if (message && Date.now() - message.time > 5 * 60 * 1000) lastDialog = this.rootDialog;
+        return lastDialog;
+      }.bind(this))
+      .then(_.bind(this.processMessage, this, msg))
+      .then(function (result)  {
+        let simpleResults = _.map(result.responses, function(r) { 
+          // console.log('rr', r.image);
+          return { 
+            text: r.text, 
+            image: r.image
+          };
         });
+
+        console.log('responses from');
+        console.log('- dialog:', (result.dialog ? result.dialog.getPath() : ''));
+        console.log('- responses:', simpleResults);
+        console.log('\n');
         
-    }.bind(this));
+
+        History.insert({
+          time: Date.now(), 
+          userId: msg.userId, 
+          type: 'outgoing',
+          meta: result.meta,
+          responses: simpleResults,
+          dialog: (result.dialog ? result.dialog.getPath() : '')
+        }, function(err) {
+          if (err) console.log('History insert err', err);
+        });
+
+        return result;
+      })
+      .then(function(result) {
+        if (result.dialog && !result.responses[0].choices) {
+          result.responses[0].choices = _.chain(result.dialog.getChildren()).pluck('label').compact().value();
+        }
+        // console.log('choices????', result.responses[0].choices);
+        return result.responses;
+      })
+      .then(_.bind(this.sendResponses, this, msg.userId))
+      .fail(function(err) {
+        if (err) console.log('Error processing message', err, err.stack);
+      });
   }
 
   sendResponses(userId, responses) {
@@ -194,8 +195,6 @@ module.exports = class Bot {
     }
 
     let adapter = this.adapterByUserId(userId);
-
-    
 
     responses
       .map(this.normalizeResponse)

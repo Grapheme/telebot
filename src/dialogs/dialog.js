@@ -21,7 +21,7 @@ class Dialog {
 }
 
 
-Dialog.unkonwnPhrase = 'Ничего не понял';
+Dialog.unknown = 'Ничего не понял';
 Dialog.help = 'Напишите простую команду, например "найди парк горького" или "покажи старбакс"';
 
 module.exports = Dialog;

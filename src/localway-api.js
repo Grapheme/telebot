@@ -65,7 +65,7 @@ module.exports = class LocalWayApi {
   }
 
   search(options) {
-    console.log('search', options);
+    console.log('localway search ', options);
 
     let query = {
       pageSize: options.count || 50,
@@ -159,7 +159,7 @@ module.exports = class LocalWayApi {
       
       let r = request(url, function(err, response, body) {
         if (err) return reject(err);
-        console.log('download err', err, url, response.constructor.name);
+        // console.log('download err', err, url, response.constructor.name);
         resolve(name);
       });
 
