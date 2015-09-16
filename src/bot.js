@@ -122,18 +122,13 @@ module.exports = class Bot {
     });
 
     setTimeout(function() {
-      
+      return;
 
       History.db.find({}).sort({ time: -1 }).exec(function(err, docs) {
-
         console.log('\n\n\n on message History');
-
         _.each(docs, function(msg) { 
           console.log(util.inspect(msg, {showHidden: false, depth: 5 }), '\n'); 
-
         });
-
-           
         console.log('\n\n\n');
       });
     }, 4 * 1000);

@@ -22,8 +22,6 @@ module.exports = class PlaceMap extends Dialog {
         return localWay.getObject(m.meta.place._id);
       })
       .then(function(place) {
-        console.log('sdsd place!!!', place);
-
         return {
           dialog: this,
           responses: [{ text: 'Вот где это' }, { location: { lat: place.lat, lon: place.lon } }]
