@@ -1,8 +1,8 @@
 'use strict';
 let Q = require('q');
 let _ = require('lodash');
-let LocalWayApi = require('../localway-api');
-let localWay = new LocalWayApi();
+
+let localWay = require('../localway-api').instance;
 
 let Dialog = require('./dialog');
 

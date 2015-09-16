@@ -5,27 +5,26 @@ let Dialog = require('./dialog');
 let Positive = require('./positive');
 let Negative = require('./negative');
 
+let PlaceMap = require('./place-map');
+let PlacePhotos = require('./place-photos');
+let PlaceReserve = require('./place-reserve');
+let PlaceReviews = require('./place-reviews');
+
 module.exports = class PlaceFound extends Dialog { 
   constructor() {
     super();
 
-    this.addChild(new Negative());
-
-
     let p = new Positive();
-    // choices: [
-    //   'Показать отзывы',
-    //   'Забронировать столик',
-    //   'Еще фото',
-    //   'На карте'
-    // ]
+    p.addChild(new PlaceReviews());
+    p.addChild(new PlaceReserve());
+    p.addChild(new PlaceMap());
+    p.addChild(new PlacePhotos());
 
     this.addChild(p);
 
-    // this.accept = ['text'];
-    // this.match = [
-      // '(недалек|ближай|рядом|вокруг|поблизост|около меня)\\S*'
-    // ];
+    let n = new Negative();
+    //
+    this.addChild(n);    
   }
 
   placeText(place) {
@@ -44,7 +43,7 @@ module.exports = class PlaceFound extends Dialog {
       
       return {
         dialog: this,
-        meta: { place: meta.place },
+        meta: { place: { _id: meta.place._id } },
         responses: [{ text: this.placeText(meta.place) }, { image: image }]
       };
     }.bind(this));  

@@ -153,7 +153,8 @@ module.exports = class Bot {
           // console.log('rr', r.image);
           return { 
             text: r.text, 
-            image: r.image
+            image: r.image,
+            location: r.location
           };
         });
 

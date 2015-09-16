@@ -6,7 +6,7 @@ var Q = require('q');
 // request.debug = true;
 
 let geolib = require('geolib');
-
+let Singleton = require('../lib/singleton');
 let fs = require('fs');
 
 
@@ -22,8 +22,10 @@ if (!fs.existsSync(tmp)) {
 
 
 
-module.exports = class LocalWayApi {
+module.exports = class LocalWayApi extends Singleton {
   constructor() {
+    super();
+
     this.r = request.defaults({
       baseUrl: 'http://localway.ru/portal-api',
       // auth: {
@@ -62,6 +64,10 @@ module.exports = class LocalWayApi {
 
   agglomerationReadableIdById(id) {
     return _.result(_.find(this.agglomerations, { _id: id }), 'readableId');
+  }
+
+  getObject(poiId) {
+    return this.requestPromise('/object/' + poiId);
   }
 
   search(options) {

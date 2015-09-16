@@ -18,7 +18,7 @@ module.exports = class NeedLocation extends Dialog {
     // console.log('sdsdsd', PlaceSearch, this.defaultSubdialog, this._parent);
 
     this.match = [
-      '(недалек|ближай|рядом|вокруг|поблизост|около меня)\\S*'
+      '(недалек|ближай|рядом|вокруг|поблизост|здес|около меня)\\S*'
     ];
 
     let l = new Location();
