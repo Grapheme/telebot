@@ -41,35 +41,35 @@ module.exports = class TelegramAdatper {
   send(msg) {
     let id = msg.userId.replace(this.type + ':','');
 
+    let options = {};
+    if (msg.keyboard) {
+      options.reply_markup = JSON.stringify({
+        // hide_keyboard: true,
+        resize_keyboard: true,
+        one_time_keyboard: true,
+        keyboard: _.map(msg.keyboard, function(i) {
+          return _(i).isArray() ? i : [i];
+        })
+      });
+    } else {
+      options.reply_markup = JSON.stringify({
+        hide_keyboard: true
+      });
+    }
+
     if (msg.text) {
-      let options = {};
-      if (msg.keyboard) {
-        options.reply_markup = JSON.stringify({
-          // hide_keyboard: true,
-          resize_keyboard: true,
-          one_time_keyboard: true,
-          keyboard: _.map(msg.keyboard, function(i) {
-            return _(i).isArray() ? i : [i];
-          })
-        });
-      } else {
-        options.reply_markup = JSON.stringify({
-          hide_keyboard: true
-        });
-      }
-      
       return this.sendMessage(id, msg.text, options);
     }
 
     if (msg.location) {
-      return this.sendLocation(id, msg.location);
+      return this.sendLocation(id, msg.location, options);
     }
 
     if (msg.image) {
       // if (_(msg.image).isString()) {
         // return this.sendPhotoByUrl(msg.image);
       // }
-      return this.sendPhoto(id, msg.image);
+      return this.sendPhoto(id, msg.image, options);
     }
   }
 
@@ -82,12 +82,12 @@ module.exports = class TelegramAdatper {
     return Q(this.api.sendMessage(chatId, text, data));
   }
 
-  sendLocation(chatId, location) {
-    return this.api.sendLocation(chatId, location.lat, location.lon);
+  sendLocation(chatId, location, options) {
+    return this.api.sendLocation(chatId, location.lat, location.lon, options);
   }
 
-  sendPhoto (chatId, photo) {
-    return this.api.sendPhoto(chatId, photo);
+  sendPhoto (chatId, photo, options) {
+    return this.api.sendPhoto(chatId, photo, options);
   }
 };
 

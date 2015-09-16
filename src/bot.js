@@ -178,10 +178,12 @@ module.exports = class Bot {
         return result;
       })
       .then(function(result) {
-        if (result.dialog && !result.responses[0].choices) {
-          result.responses[0].choices = _.chain(result.dialog.getChildren()).pluck('label').compact().value();
+        let lastResponse = _.last(result.responses);
+
+        if (result.dialog && !lastResponse.choices) {
+          lastResponse.choices = _.chain(result.dialog.getChildren()).pluck('label').compact().value();
         }
-        // console.log('choices????', result.responses[0].choices);
+        // console.log('choices????', result.responses);
         return result.responses;
       })
       .then(_.bind(this.sendResponses, this, msg.userId))

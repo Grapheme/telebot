@@ -1,6 +1,7 @@
 'use strict';
 
 let Dialog = require('./dialog');
+let _ = require('lodash');
 
 module.exports = class Positive extends Dialog { 
   constructor() {
@@ -10,7 +11,19 @@ module.exports = class Positive extends Dialog {
     // this.addChild(positive);
     // this.accept = ['text'];
 
-    this.match = ['да\\, отлично', 'супер']; 
+    this.match = ['да\\, отлично', 'супер', 'да']; 
+
+    this.r1 = [
+      'Супер', 
+      'Я рад)))',
+      'Хорошо, я рад'
+    ];
+
+    this.r2 = [
+      'Чем еще могу быть полезен?',
+      'Чем еще могу помочь?',
+      'Могу еще что-то сделать для тебя?'
+    ];
 
     this.label = 'Да, отлично';
   }
@@ -19,7 +32,10 @@ module.exports = class Positive extends Dialog {
     return {
       dialog: this,
       responses: [{
-        text: 'Рад был'
+        text: _.sample(this.r1)
+      },
+      {
+        text: _.sample(this.r2)
       }]
     };
   } 
