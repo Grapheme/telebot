@@ -10,7 +10,17 @@ module.exports = class PlaceFound extends Dialog {
     super();
 
     this.addChild(new Negative());
-    this.addChild(new Positive());
+
+
+    let p = new Positive();
+    // choices: [
+    //   'Показать отзывы',
+    //   'Забронировать столик',
+    //   'Еще фото',
+    //   'На карте'
+    // ]
+
+    this.addChild(p);
 
     // this.accept = ['text'];
     // this.match = [
@@ -28,13 +38,14 @@ module.exports = class PlaceFound extends Dialog {
     return text;
   }
 
-  responseForPlace(place) {
-    return place.coverImage()
+  response(message, meta) {
+    return meta.place.coverImage()
       .then(function(image) {
       
       return {
         dialog: this,
-        responses: [{ text: this.placeText(place) }, { image: image }]
+        meta: { place: meta.place },
+        responses: [{ text: this.placeText(meta.place) }, { image: image }]
       };
     }.bind(this));  
   }

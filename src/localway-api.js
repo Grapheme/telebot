@@ -125,8 +125,17 @@ module.exports = class LocalWayApi {
     });
   }
   
-  searchRandomClosest(options) {
-    return this.searchRandomBest(_.extend({ sortBy: 'geoDistance' }, options));
+  searchClosest(options) {
+    return this.search(_.extend({ sortBy: 'geoDistance' }, options)).then(function(places) {  
+      console.log('sdsd places', places.length);
+      return [places[0]];
+    });
+  }
+
+  searchBestClosest(options) {
+    // return this.search(_.extend({ sortBy: 'geoDistance' }, options)).then(function(places) {
+      // return places[0];
+    // });
   }
 
   searchRandomCheapest(options) {

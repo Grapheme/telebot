@@ -8,28 +8,16 @@ let Dialog = require('./dialogs/dialog');
 let RootDialog = require('./dialogs/root-dialog');
 let SimpleDialog = require('./dialogs/simple');
 
-let Datastore = require('nedb');
-let history = new Datastore(); //{ filename: 'path/to/datafile', autoload: true }
-
-history.lastOutgoingMessage = function(userId, func) {
-  return this.find({ userId: userId, type: 'outgoing' }).sort({ time: -1 }).limit(1).exec(func);
-};
-
-// location last 30 min
-history.lastLocationMessage = function(userId, func) {
-  return this.find({ userId: userId, type: 'incoming', time: { $gt: Date.now() - 30 * 60 * 1000 }, location: { $exists: true } }).sort({ time: -1 }).limit(1).exec(func);
-};
-
-// place last 5 min 
-history.lastPlaceMessage = function(userId, func) {
-  return this.find({ userId: userId, type: 'outgoing', time: { $gt: Date.now() - 5 * 60 * 1000 }, meta: {  place: { $exists: true } } }).sort({ time: -1 }).limit(1).exec(func);
-};
+let History = require('./history').instance;
 
 module.exports = class Bot {
   constructor(options) {
     this.adapters = [];
     this.rootDialog = new RootDialog();
     this.simpleDialog = new SimpleDialog();
+
+    this.rootDialog.printTree();
+
 
     let adapters = requireDir('./adapters');
 
@@ -112,35 +100,35 @@ module.exports = class Bot {
       return Q.when({ dialog: null, responses: [lastDialog.unkonwnPhrase || Dialog.unkonwnPhrase, lastDialog.help || Dialog.help].join('\n') });
     }
 
-    return Q.when(dialog.response(msg, history, matched));
+    return Q.when(dialog.response(msg, { matched: matched }));
   }
 
   onMessage (msg) {
     console.log('\non message', msg);
 
-    history.insert({ 
+    History.insert({ 
       time: Date.now(), 
       userId: msg.userId,
       text: msg.text,
       location: msg.location,
       type: 'incoming'
     }, function(err) {
-      if (err) console.log('history insert err', err);
+      if (err) console.log('History insert err', err);
     });
 
     setTimeout(function() {
-      history.find({}).sort({ time: -1 }).exec(function(err, docs) {
+      History.db.find({}).sort({ time: -1 }).exec(function(err, docs) {
         let r = _.map(docs, function(msg) { 
           return msg.text ? `> time: ${ msg.time }, text: ${ msg.text }` : `< time: ${msg.time  } dialog: ${ msg.dialog }`; 
         });
 
-        console.log('\n\n\n on message history', r);    
+        console.log('\n\n\n on message History', r);    
         console.log('\n\n\n');
       });
     }, 4 * 1000);
 
 
-    history.lastOutgoingMessage(msg.userId, function(err, messages) {
+    History.lastOutgoingMessage(msg.userId, function(err, messages) {
       let lastDialog;
 
       if (err || !messages.length || !messages[0].dialog || Date.now() - messages[0].time > 5 * 60 * 1000) {
@@ -148,15 +136,15 @@ module.exports = class Bot {
         lastDialog = this.rootDialog;
       } else {
         lastDialog = this.rootDialog.find(messages[0].dialog);
+        if (lastDialog && !lastDialog.getChildren().length) {
+          lastDialog = this.rootDialog;
+        }
       } 
-
-      // console.log('on Message', lastDialog.getPath());
 
       let sendResponses = _.bind(this.sendResponses, this, msg.userId);
 
       this.processMessage(msg, lastDialog)
         .then(function (result)  {
-          
 
           let simpleResults = _.map(result.responses, function(r) { 
             // console.log('rr', r.image);
@@ -169,17 +157,18 @@ module.exports = class Bot {
           });
 
           console.log('processMessage responses', simpleResults);
+          console.log('result dialog', (result.dialog ? result.dialog.getPath() : ''));
 
           
 
-          history.insert({
+          History.insert({
             time: Date.now(), 
             userId: msg.userId, 
             type: 'outgoing',
             responses: simpleResults,
             dialog: (result.dialog ? result.dialog.getPath() : '')
           }, function(err) {
-            if (err) console.log('history insert err', err);
+            if (err) console.log('History insert err', err);
           });
 
           return result;

@@ -19,13 +19,7 @@ module.exports = class Positive extends Dialog {
     return {
       dialog: this,
       responses: [{
-        text: 'Рад был',
-        choices: [
-          'Показать отзывы',
-          'Забронировать столик',
-          'Еще фото',
-          'На карте'
-        ]
+        text: 'Рад был'
       }]
     };
   } 

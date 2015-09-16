@@ -10,6 +10,8 @@ let PlaceNotFound = require('./place-not-found');
 let PlaceFound = require('./place-found');
 let NeedLocation = require('./need-location');
 
+let History = require('../history').instance;
+
 // for (let r in Talk.querySort) {
 //   let m = Talk.querySorting[r];
 //   text = text.replace(new RegExp(r, 'im'), function() {
@@ -34,7 +36,15 @@ module.exports = class PlaceSearch extends Dialog {
 
     this.accept = ['text', 'location'];
 
-  
+    this.needLocation = new NeedLocation();
+
+    this.placeFound = new PlaceFound();
+    this.placeNotFound = new PlaceNotFound();
+
+    this.addChild(this.needLocation);
+    this.addChild(this.placeFound);
+    this.addChild(this.placeNotFound);
+
     this.querySort = {
       '(лучш|хорош|неплох)\\S*': { 
         type: 'best',
@@ -45,19 +55,11 @@ module.exports = class PlaceSearch extends Dialog {
       }
     };
 
-    this.needLocation = new NeedLocation();
-
     this.querySort[this.needLocation.match[0]] = {
         type: 'closest', // сортировать по расстоянию
         need: 'location'
     };
 
-    this.placeFound = new PlaceFound();
-    this.placeNotFound = new PlaceNotFound();
-
-    this.addChild(this.needLocation);
-    this.addChild(this.placeFound);
-    this.addChild(this.placeNotFound);
   }
 
   get match() {
@@ -66,18 +68,12 @@ module.exports = class PlaceSearch extends Dialog {
     ];
   }
 
-    
-
-  response(message, history, matched) {
-    // 
+  response(message, meta) {
     let text = message.text;
 
     if (!text && message.location) {
       text = Q.Promise(function(resolve) {
-        history.find({ userId: message.userId, type: 'incoming', text: { $regex: /.+/im }})
-          .sort({ time: -1 })
-          .limit(1)
-          .exec(function(err, docs) {
+          History.lastIncomingTextMessage(message.userId, function(err, docs) {
             console.log('find text', err, docs);
 
             if (!err && docs[0]) {
@@ -88,15 +84,16 @@ module.exports = class PlaceSearch extends Dialog {
           });
       });
     }
+
     return Q.Promise(function(resolve, reject) {
-      return Q.when(text).fail(reject).then(function(text) {
-
-        let processed = this.processMessage(text);
-
-      
+      return Q.when(text)
+        .then(this.processMessage.bind(this))
+        .then(function(processed) {
+            
         console.log('response processed:', processed, 'message:', message, text);
 
-        let search = function(processed) {
+        let search = function() {
+
           this.searchForPlace(processed)
             .then(this.onFoundPlace.bind(this))
             .then(function(resp) {
@@ -106,9 +103,9 @@ module.exports = class PlaceSearch extends Dialog {
         }.bind(this);
 
         // ищем
-        history.lastLocationMessage(message.userId, function(err, docs) {
+        History.lastLocationMessage(message.userId, function(err, docs) {
           if (err || !docs.length ) {
-            console.log('location not found in history');
+            console.log('location not found in History');
 
             if (processed.need === 'location') {
               console.log('need to ask location');              
@@ -123,17 +120,24 @@ module.exports = class PlaceSearch extends Dialog {
             search(processed);
           }
         }.bind(this));
-      }.bind(this));
+      }.bind(this))
+      .fail(reject);
     }.bind(this));
   }
 
-  onFoundPlace(place) {
+  onFoundPlace(results) {
+    let processedMessage = results[0];
+    let place = results[1];
+
     if (!place) {
-      console.log('not  fouuuun!');
+      console.log('not  fouuuund!');
       return this.placeNotFound.response();
     }
 
-    return this.placeFound.responseForPlace(place);
+    return this.placeFound.response({}, {
+      place: place,
+      processedMessage: processedMessage
+    });
   }
 
   processMessage(text) {
@@ -145,6 +149,8 @@ module.exports = class PlaceSearch extends Dialog {
       sorting: [],
     };  
 
+    console.log('processMessage????', text);
+
 
     for (let r in this.querySort) {
       text = text.replace(new RegExp(r, 'im'), function() {
@@ -155,6 +161,8 @@ module.exports = class PlaceSearch extends Dialog {
       }.bind(this)).trim();
     }
 
+    // console.log('cate', _.pluck(localWay.categories, 'name'));
+
     for (let c of localWay.categories) {
       text = text.replace(new RegExp(c.name.replace('+', '\\+'), 'im'), function(m) {
         result.modifiers.push({ type: 'category', category: c }); 
@@ -162,17 +170,17 @@ module.exports = class PlaceSearch extends Dialog {
       }).trim();
     }
 
-    result.query = text;
-
-    result.query = result.query.replace(new RegExp(this.match, 'im'),'').replace(/[?!.]/m,' ').replace(/\s+/m,' ').trim().toLowerCase();
-    
     // TODO получить amenityName cuisineName 
-    result.query = result.query.replace(/кухн\S*/im, function() {
+    text = text.replace(/кухн\S*/im, function() {
       result.modifiers.push({ type: 'category', category: { name: 'Ресторан' }});
       return '';
     });
 
-    if (!_.find(result.modifiers, { type: 'category' })) {
+    result.query = text;
+
+    result.query = result.query.replace(new RegExp(this.match, 'im'),'').replace(/[?!.]/m,' ').replace(/\s+/m,' ').trim().toLowerCase();
+    
+    if (!result.query && !_.find(result.modifiers, { type: 'category' })) {
       result.modifiers.push({ type: 'category', category: { name: 'Ресторан' }});
     }
 
@@ -193,6 +201,8 @@ module.exports = class PlaceSearch extends Dialog {
       searchOptions.categoryName = c.category.name;
     }
 
+
+
     if (processedMessage.location) {
       // console.log('search with location!!!!!!');
       searchOptions.latitude = processedMessage.location.latitude;
@@ -201,13 +211,13 @@ module.exports = class PlaceSearch extends Dialog {
 
     let requests = [];
 
-    if (_(processedMessage.sorting).pluck('type').intersection(['best', 'randomBest']).value().length) {
+    if (_(processedMessage.sorting).pluck('type').intersection(['randomBest']).value().length) {
       requests.push(localWay.searchRandomBest(searchOptions));
     }
 
 
     if (_(processedMessage.sorting).pluck('type').include('closest')) {
-      requests.push(localWay.searchRandomClosest(searchOptions));
+      requests.push(localWay.searchClosest(searchOptions));
     }
 
     if (_(processedMessage.sorting).pluck('type').include('cheapest')) {
@@ -218,12 +228,14 @@ module.exports = class PlaceSearch extends Dialog {
       requests.push(localWay.search(searchOptions));
     }
 
+
+
     Q.all(requests).then(function(searchResults) {    
       let normal = searchResults[0];
       let exact = searchResults[1] || [];
       
       if (!normal.length && !exact.length) {
-        deferred.resolve();
+        deferred.resolve([processedMessage]);
       } else {
         let place = normal[0];
 
@@ -240,7 +252,7 @@ module.exports = class PlaceSearch extends Dialog {
         // console.log('place:', place._id, place.name, place.aliases, place.address, place.lat, place.lon);
         place = localWay.preparePlace(place); 
 
-        deferred.resolve(place);  
+        deferred.resolve([processedMessage, place]);  
       }
     });
 
