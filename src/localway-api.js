@@ -93,7 +93,7 @@ module.exports = class LocalWayApi extends Singleton {
         });
       })[0];
 
-      console.log('agglomeration', closest.name);
+      console.log('agglomeration', closest.name, closest._id);
       query.agglomeration = closest._id;
     } else {
       query.agglomeration = this.defaultAgglomeration;
@@ -132,7 +132,7 @@ module.exports = class LocalWayApi extends Singleton {
   }
   
   searchClosest(options) {
-    return this.search(_.extend({ sortBy: 'geoDistance' }, options)).then(function(places) {  
+    return this.search(_.extend({ sortBy: 'geoDistance', 'sort.dir': 'asc' }, options)).then(function(places) {  
       console.log('sdsd places', places.length);
       return [places[0]];
     });
